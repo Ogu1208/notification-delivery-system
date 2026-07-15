@@ -16,6 +16,9 @@ spring:
 notification:
   kafka:
     topic: single-notification-send
+  outbox:
+    publisher-enabled: false
+    polling-interval-ms: 1000
   role:
     api-enabled: true
     worker-enabled: false

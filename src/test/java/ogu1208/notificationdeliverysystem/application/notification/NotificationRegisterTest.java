@@ -4,37 +4,41 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture.createRequest;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
-import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
+import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
+import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
+import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEventStatus;
 import ogu1208.notificationdeliverysystem.domain.notification.RequestId;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
 
 class NotificationRegisterTest {
 
 	private final FakeNotificationRepository repository = new FakeNotificationRepository();
-	private final SpyNotificationMessagePublisher publisher = new SpyNotificationMessagePublisher();
 	private final StubExternalNotificationSender externalSender = new StubExternalNotificationSender();
+	private final SpyOutboxEventRepository outboxEventRepository = new SpyOutboxEventRepository();
 	private final NotificationRegister notificationRegister = new NotificationModifyService(
 		repository,
-		publisher,
-		externalSender
+		externalSender,
+		outboxEventRepository
 	);
 
 	@Test
-	@DisplayName("알림 등록 요청을 저장하고 발행 메시지를 요청한다")
-	void registerSavesNotificationAndPublishesMessage() {
+	@DisplayName("알림 등록 요청을 저장하고 Outbox 이벤트를 저장한다")
+	void registerSavesNotificationAndOutboxEvent() {
 		NotificationRegisterRequest request = createRequest();
 
 		Notification notification = notificationRegister.register(request);
@@ -42,8 +46,8 @@ class NotificationRegisterTest {
 		assertThat(notification.getStatus()).isEqualTo(NotificationStatus.PENDING);
 		assertThat(notification.getRequestId()).isEqualTo(new RequestId("req-001"));
 		assertThat(repository.findByRequestIdValue("req-001")).containsSame(notification);
-		assertThat(publisher.publishedNotification).isSameAs(notification);
-		assertThat(publisher.publishCount).isEqualTo(1);
+		assertThat(outboxEventRepository.savedEvent.getAggregateId()).isEqualTo(notification.getId());
+		assertThat(outboxEventRepository.saveCount).isEqualTo(1);
 	}
 
 	@Test
@@ -62,16 +66,20 @@ class NotificationRegisterTest {
 
 		assertThat(notification).isSameAs(existing);
 		assertThat(repository.saveCount).isEqualTo(1);
-		assertThat(publisher.publishCount).isZero();
+		assertThat(outboxEventRepository.saveCount).isZero();
 	}
 
 	private static class FakeNotificationRepository implements NotificationRepository {
 
 		private final Map<String, Notification> notifications = new LinkedHashMap<>();
+		private long idSequence = 1L;
 		private int saveCount;
 
 		@Override
 		public Notification save(Notification notification) {
+			if (notification.getId() == null) {
+				ReflectionTestUtils.setField(notification, "id", idSequence++);
+			}
 			notifications.put(notification.getRequestId().value(), notification);
 			saveCount++;
 			return notification;
@@ -88,22 +96,28 @@ class NotificationRegisterTest {
 		}
 	}
 
-	private static class SpyNotificationMessagePublisher implements NotificationMessagePublisher {
-
-		private Notification publishedNotification;
-		private int publishCount;
-
-		@Override
-		public void publish(Notification notification) {
-			publishedNotification = notification;
-			publishCount++;
-		}
-	}
-
 	private static class StubExternalNotificationSender implements ExternalNotificationSender {
 
 		@Override
 		public void send(Notification notification) {
+		}
+	}
+
+	private static class SpyOutboxEventRepository implements OutboxEventRepository {
+
+		private OutboxEvent savedEvent;
+		private int saveCount;
+
+		@Override
+		public OutboxEvent save(OutboxEvent outboxEvent) {
+			savedEvent = outboxEvent;
+			saveCount++;
+			return outboxEvent;
+		}
+
+		@Override
+		public List<OutboxEvent> findByStatus(OutboxEventStatus status) {
+			return List.of();
 		}
 	}
 }

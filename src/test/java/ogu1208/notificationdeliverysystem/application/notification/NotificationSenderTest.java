@@ -2,6 +2,7 @@ package ogu1208.notificationdeliverysystem.application.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -11,21 +12,23 @@ import org.junit.jupiter.api.Test;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
-import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
+import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
+import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
+import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEventStatus;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
 
 class NotificationSenderTest {
 
 	private final FakeNotificationRepository repository = new FakeNotificationRepository();
-	private final StubNotificationMessagePublisher publisher = new StubNotificationMessagePublisher();
 	private final SpyExternalNotificationSender externalSender = new SpyExternalNotificationSender();
+	private final StubOutboxEventRepository outboxEventRepository = new StubOutboxEventRepository();
 	private final NotificationSender notificationSender = new NotificationModifyService(
 		repository,
-		publisher,
-		externalSender
+		externalSender,
+		outboxEventRepository
 	);
 
 	@Test
@@ -97,10 +100,16 @@ class NotificationSenderTest {
 		}
 	}
 
-	private static class StubNotificationMessagePublisher implements NotificationMessagePublisher {
+	private static class StubOutboxEventRepository implements OutboxEventRepository {
 
 		@Override
-		public void publish(Notification notification) {
+		public OutboxEvent save(OutboxEvent outboxEvent) {
+			return outboxEvent;
+		}
+
+		@Override
+		public List<OutboxEvent> findByStatus(OutboxEventStatus status) {
+			return List.of();
 		}
 	}
 

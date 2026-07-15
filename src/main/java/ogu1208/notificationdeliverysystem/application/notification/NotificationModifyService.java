@@ -11,10 +11,11 @@ import lombok.RequiredArgsConstructor;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
-import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
+import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
+import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
 
 @Service
 @Validated
@@ -25,8 +26,8 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 	private static final Logger log = LoggerFactory.getLogger(NotificationModifyService.class);
 
 	private final NotificationRepository notificationRepository;
-	private final NotificationMessagePublisher notificationMessagePublisher;
 	private final ExternalNotificationSender externalNotificationSender;
+	private final OutboxEventRepository outboxEventRepository;
 
 	@Override
 	public Notification register(@Valid NotificationRegisterRequest request) {
@@ -37,7 +38,7 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 	private Notification registerNewNotification(NotificationRegisterRequest request) {
 		Notification notification = Notification.register(request);
 		Notification savedNotification = notificationRepository.save(notification);
-		notificationMessagePublisher.publish(savedNotification);
+		outboxEventRepository.save(OutboxEvent.singleNotificationSend(savedNotification.getId()));
 		return savedNotification;
 	}
 

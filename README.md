@@ -11,9 +11,10 @@
 - `requestId` 필수 검증
 - 같은 `requestId` 재요청 시 기존 알림 반환
 - H2/JPA 저장과 `requestId` 유니크 제약
-- Kafka 연결 전 단계의 no-op 메시지 발행 포트
+- Kafka 연결 전 단계의 fallback 메시지 발행 대역
 
 Kafka Producer, Consumer, Redis 분산락, Mock Sender는 이후 단계에서 연결합니다.
+그룹/대량 발송은 현재 범위에서 제외합니다. 이후 필요하면 `NotificationGroup`을 추가해 여러 단건 알림을 묶고, 단건 `Notification`은 개별 수신자와 발송 상태만 책임지도록 확장합니다.
 
 ## API
 

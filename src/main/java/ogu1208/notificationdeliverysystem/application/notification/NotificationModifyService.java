@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
@@ -14,18 +15,11 @@ import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegist
 @Service
 @Validated
 @Transactional
+@RequiredArgsConstructor
 public class NotificationModifyService implements NotificationRegister {
 
 	private final NotificationRepository notificationRepository;
 	private final NotificationMessagePublisher notificationMessagePublisher;
-
-	public NotificationModifyService(
-		NotificationRepository notificationRepository,
-		NotificationMessagePublisher notificationMessagePublisher
-	) {
-		this.notificationRepository = notificationRepository;
-		this.notificationMessagePublisher = notificationMessagePublisher;
-	}
 
 	@Override
 	public Notification register(@Valid NotificationRegisterRequest request) {

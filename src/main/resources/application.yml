@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: NotificationDeliverySystem
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+notification:
+  kafka:
+    topic: single-notification-send
+  role:
+    api-enabled: true
+    worker-enabled: false

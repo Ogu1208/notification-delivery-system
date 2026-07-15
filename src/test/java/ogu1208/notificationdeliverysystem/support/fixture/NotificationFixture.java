@@ -2,11 +2,13 @@ package ogu1208.notificationdeliverysystem.support.fixture;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-public class NotificationRegisterRequestFixture {
+public class NotificationFixture {
 
 	private String requestId = "req-001";
 	private String receiver = "user@example.com";
@@ -14,39 +16,49 @@ public class NotificationRegisterRequestFixture {
 	private String title = "welcome";
 	private String content = "hello";
 
-	public static NotificationRegisterRequest create() {
+	public static NotificationRegisterRequest createRequest() {
 		return builder().build();
 	}
 
-	public static NotificationRegisterRequestFixture builder() {
-		return new NotificationRegisterRequestFixture();
+	public static Notification createNotification() {
+		return Notification.register(createRequest());
+	}
+
+	public static Notification createNotification(Long id) {
+		Notification notification = createNotification();
+		ReflectionTestUtils.setField(notification, "id", id);
+		return notification;
+	}
+
+	public static NotificationFixture builder() {
+		return new NotificationFixture();
 	}
 
 	public NotificationRegisterRequest build() {
 		return new NotificationRegisterRequest(requestId, receiver, channel, title, content);
 	}
 
-	public NotificationRegisterRequestFixture withRequestId(String requestId) {
+	public NotificationFixture withRequestId(String requestId) {
 		this.requestId = requestId;
 		return this;
 	}
 
-	public NotificationRegisterRequestFixture withReceiver(String receiver) {
+	public NotificationFixture withReceiver(String receiver) {
 		this.receiver = receiver;
 		return this;
 	}
 
-	public NotificationRegisterRequestFixture withChannel(NotificationChannel channel) {
+	public NotificationFixture withChannel(NotificationChannel channel) {
 		this.channel = channel;
 		return this;
 	}
 
-	public NotificationRegisterRequestFixture withTitle(String title) {
+	public NotificationFixture withTitle(String title) {
 		this.title = title;
 		return this;
 	}
 
-	public NotificationRegisterRequestFixture withContent(String content) {
+	public NotificationFixture withContent(String content) {
 		this.content = content;
 		return this;
 	}

@@ -1,12 +1,13 @@
 package ogu1208.notificationdeliverysystem.application.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static ogu1208.notificationdeliverysystem.support.fixture.NotificationRegisterRequestFixture.create;
+import static ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture.createRequest;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
@@ -17,7 +18,7 @@ import ogu1208.notificationdeliverysystem.domain.notification.NotificationChanne
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
 import ogu1208.notificationdeliverysystem.domain.notification.RequestId;
-import ogu1208.notificationdeliverysystem.support.fixture.NotificationRegisterRequestFixture;
+import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
 
 class NotificationRegisterTest {
 
@@ -26,8 +27,9 @@ class NotificationRegisterTest {
 	private final NotificationRegister notificationRegister = new NotificationModifyService(repository, publisher);
 
 	@Test
+	@DisplayName("알림 등록 요청을 저장하고 발행 메시지를 요청한다")
 	void registerSavesNotificationAndPublishesMessage() {
-		NotificationRegisterRequest request = create();
+		NotificationRegisterRequest request = createRequest();
 
 		Notification notification = notificationRegister.register(request);
 
@@ -39,10 +41,11 @@ class NotificationRegisterTest {
 	}
 
 	@Test
+	@DisplayName("같은 요청 ID가 이미 있으면 기존 알림을 반환하고 다시 발행하지 않는다")
 	void registerReturnsExistingNotificationWhenRequestIdAlreadyExists() {
-		Notification existing = Notification.register(create());
+		Notification existing = Notification.register(createRequest());
 		repository.save(existing);
-		NotificationRegisterRequest request = NotificationRegisterRequestFixture.builder()
+		NotificationRegisterRequest request = NotificationFixture.builder()
 			.withReceiver("other@example.com")
 			.withChannel(NotificationChannel.SMS)
 			.withTitle("ignored")

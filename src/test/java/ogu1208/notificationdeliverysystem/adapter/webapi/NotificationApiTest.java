@@ -2,6 +2,7 @@ package ogu1208.notificationdeliverysystem.adapter.webapi;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static ogu1208.notificationdeliverysystem.support.fixture.NotificationRegisterRequestFixture.create;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -16,8 +17,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
-import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
-import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
 
 @WebMvcTest(NotificationApi.class)
 class NotificationApiTest {
@@ -30,13 +29,7 @@ class NotificationApiTest {
 
 	@Test
 	void registerNotificationReturnsAcceptedResponse() throws Exception {
-		Notification notification = Notification.register(new NotificationRegisterRequest(
-			"req-001",
-			"user@example.com",
-			NotificationChannel.EMAIL,
-			"welcome",
-			"hello"
-		));
+		Notification notification = Notification.register(create());
 		ReflectionTestUtils.setField(notification, "id", 1L);
 		when(notificationRegister.register(any())).thenReturn(notification);
 

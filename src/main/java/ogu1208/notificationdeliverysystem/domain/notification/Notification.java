@@ -73,27 +73,32 @@ public class Notification extends BaseEntity {
 
 	public void startSending() {
 		state(!isCompleted(), "최종 상태의 알림은 발송을 시작할 수 없습니다");
-		state(status == NotificationStatus.PENDING, "발송 대기 상태의 알림만 발송을 시작할 수 있습니다");
-		status = NotificationStatus.SENDING;
+		changeStatusTo(NotificationStatus.SENDING);
 		sendingStartedAt = LocalDateTime.now();
 		attemptCount++;
 	}
 
 	public void markSent() {
-		state(status == NotificationStatus.SENDING, "발송 중 상태의 알림만 발송 완료로 변경할 수 있습니다");
-		status = NotificationStatus.SENT;
+		changeStatusTo(NotificationStatus.SENT);
 		sentAt = LocalDateTime.now();
 	}
 
 	public void markFailed(String failureReason) {
-		state(status == NotificationStatus.SENDING, "발송 중 상태의 알림만 발송 실패로 변경할 수 있습니다");
-		status = NotificationStatus.FAILED;
+		changeStatusTo(NotificationStatus.FAILED);
 		failedAt = LocalDateTime.now();
 		hasText(failureReason, "실패 사유는 필수입니다");
 		this.failureReason = failureReason;
 	}
 
 	public boolean isCompleted() {
-		return status == NotificationStatus.SENT || status == NotificationStatus.FAILED;
+		return status.isCompleted();
+	}
+
+	private void changeStatusTo(NotificationStatus targetStatus) {
+		state(
+			status.canChangeTo(targetStatus),
+			status + " 상태에서 " + targetStatus + " 상태로 변경할 수 없습니다"
+		);
+		status = targetStatus;
 	}
 }

@@ -1,6 +1,7 @@
 package ogu1208.notificationdeliverysystem.application.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static ogu1208.notificationdeliverysystem.support.fixture.NotificationRegisterRequestFixture.create;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -16,6 +17,7 @@ import ogu1208.notificationdeliverysystem.domain.notification.NotificationChanne
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
 import ogu1208.notificationdeliverysystem.domain.notification.RequestId;
+import ogu1208.notificationdeliverysystem.support.fixture.NotificationRegisterRequestFixture;
 
 class NotificationRegisterTest {
 
@@ -25,13 +27,7 @@ class NotificationRegisterTest {
 
 	@Test
 	void registerSavesNotificationAndPublishesMessage() {
-		NotificationRegisterRequest request = new NotificationRegisterRequest(
-			"req-001",
-			"user@example.com",
-			NotificationChannel.EMAIL,
-			"welcome",
-			"hello"
-		);
+		NotificationRegisterRequest request = create();
 
 		Notification notification = notificationRegister.register(request);
 
@@ -44,21 +40,14 @@ class NotificationRegisterTest {
 
 	@Test
 	void registerReturnsExistingNotificationWhenRequestIdAlreadyExists() {
-		Notification existing = Notification.register(new NotificationRegisterRequest(
-			"req-001",
-			"user@example.com",
-			NotificationChannel.EMAIL,
-			"welcome",
-			"hello"
-		));
+		Notification existing = Notification.register(create());
 		repository.save(existing);
-		NotificationRegisterRequest request = new NotificationRegisterRequest(
-			"req-001",
-			"other@example.com",
-			NotificationChannel.SMS,
-			"ignored",
-			"ignored"
-		);
+		NotificationRegisterRequest request = NotificationRegisterRequestFixture.builder()
+			.withReceiver("other@example.com")
+			.withChannel(NotificationChannel.SMS)
+			.withTitle("ignored")
+			.withContent("ignored")
+			.build();
 
 		Notification notification = notificationRegister.register(request);
 

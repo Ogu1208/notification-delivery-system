@@ -1,0 +1,156 @@
+# 구현 내용
+
+## 패키지 구조
+
+```text
+notificationdeliverysystem
+├── domain
+│   ├── notification
+│   └── outbox
+├── application
+│   └── notification
+│       ├── provided
+│       └── required
+└── adapter
+    ├── webapi
+    ├── persistence
+    ├── messaging
+    │   ├── kafka
+    │   └── outbox
+    └── integration
+```
+
+## 주요 컴포넌트
+
+### Web API
+
+- `NotificationApi`
+  - `POST /notifications` 요청을 받는다.
+  - `NotificationRegister` provided port에 위임한다.
+- `ApiControllerAdvice`
+  - validation 실패와 도메인 예외를 `ProblemDetail` 응답으로 변환한다.
+
+### Application
+
+- `NotificationRegister`
+  - 알림 등록 유스케이스 진입 포트다.
+- `NotificationSender`
+  - Kafka Consumer가 호출하는 발송 유스케이스 진입 포트다.
+- `NotificationModifyService`
+  - 등록과 발송 상태 변경을 담당한다.
+  - 등록 시 `Notification`과 `OutboxEvent`를 같은 트랜잭션에서 저장한다.
+  - 발송 시 `PENDING -> SENDING -> SENT/FAILED` 상태 전이를 수행한다.
+- `NotificationOutboxPublishService`
+  - `PENDING` Outbox 이벤트를 Kafka publisher port로 발행한다.
+  - 발행 성공 시 Outbox 이벤트를 `PUBLISHED`로 변경한다.
+
+### Domain
+
+- `Notification`
+  - 단건 알림 요청과 발송 상태를 가진다.
+- `RequestId`
+  - 클라이언트 retry 중복 판단에 사용하는 값 객체다.
+- `OutboxEvent`
+  - Kafka 발행 예정 이벤트다.
+  - `status, id` 인덱스로 polling 조회를 보조한다.
+  - `aggregateId, status` 인덱스로 commit 이후 즉시 발행 단건 조회를 보조한다.
+
+### Messaging
+
+- `NotificationKafkaProducer`
+  - `NotificationMessagePublisher` required port 구현체다.
+  - Kafka topic `single-notification-send`로 메시지를 발행한다.
+- `NotificationKafkaConsumer`
+  - Kafka 메시지를 소비해 `NotificationSender.send(notificationId)`를 호출한다.
+  - `notification.role.worker-enabled=true`일 때 활성화된다.
+- `NotificationOutboxEventListener`
+  - `@TransactionalEventListener(AFTER_COMMIT)`로 Outbox 저장 이벤트를 받는다.
+  - commit 이후 즉시 Kafka 발행을 시도한다.
+- `NotificationOutboxPoller`
+  - 남아 있는 `PENDING` Outbox 이벤트를 주기적으로 재처리한다.
+  - `notification.outbox.publisher-enabled=true`일 때 활성화된다.
+
+### Mock Sender
+
+- `MockNotificationSenderRouter`
+  - 알림 채널을 보고 채널별 Sender를 선택한다.
+- `EmailMockSender`, `SmsMockSender`, `KakaoMockSender`
+  - 실제 외부 API 대신 로그로 발송을 표현한다.
+
+## Outbox 발행 흐름
+
+```text
+NotificationModifyService.register()
+ -> Notification 저장
+ -> OutboxEvent 저장
+ -> OutboxEventNotifier.notifyOutboxSaved(notificationId)
+ -> 202 Accepted
+
+Spring transaction commit
+ -> NotificationOutboxEventListener.publishAfterCommit()
+ -> NotificationOutboxPublishService.publishPendingByNotificationId()
+ -> Kafka 발행
+ -> OutboxEvent.markPublished()
+```
+
+즉시 발행이 실패하면 listener는 예외를 전파하지 않는다.
+이벤트는 `PENDING` 상태로 남고 polling publisher가 다시 처리한다.
+
+```text
+NotificationOutboxPoller
+ -> PENDING OutboxEvent batch 조회
+ -> Kafka 발행
+ -> PUBLISHED 변경
+```
+
+## Outbox 조회 방식
+
+polling publisher는 전체 Outbox 테이블을 매번 읽지 않는다.
+
+```text
+status = PENDING
+order by id asc
+limit polling-batch-size
+```
+
+현재 기본 batch size는 100이다.
+
+```yaml
+notification:
+  outbox:
+    polling-batch-size: 100
+```
+
+조회 성능을 위해 `OutboxEvent`에는 다음 인덱스를 둔다.
+
+| 인덱스 | 용도 |
+| --- | --- |
+| `status, id` | `PENDING` 이벤트를 id 순서로 제한 조회 |
+| `aggregateId, status` | commit 이후 즉시 발행 대상 단건 조회 |
+
+## 역할 분리 설정
+
+```yaml
+notification:
+  role:
+    api-enabled: true
+    worker-enabled: false
+  outbox:
+    publisher-enabled: false
+```
+
+- API 역할: Web API, DB 저장, Outbox 저장
+- Outbox Publisher 역할: commit 이후 즉시 발행, 미발행 이벤트 polling
+- Worker 역할: Kafka Consumer, Mock Sender
+
+아직 단일 애플리케이션 안에서 실행하지만, 나중에 API 서버와 Worker 서버로 나누기 위한 전제만 둔다.
+
+## 테스트
+
+- 도메인 상태 전이 테스트
+- 등록 유스케이스 테스트
+- Outbox 저장과 발행 테스트
+- Outbox repository 인덱스/조회 테스트
+- Kafka Producer/Consumer 단위 테스트
+- Mock Sender router 테스트
+- Web API validation 테스트

@@ -23,9 +23,11 @@ public class MockNotificationSenderRouter implements ExternalNotificationSender 
 	@Override
 	public void send(Notification notification) {
 		MockChannelSender sender = senders.get(notification.getChannel());
+
 		if (sender == null) {
 			throw new IllegalArgumentException("지원하지 않는 알림 채널입니다");
 		}
+
 		sender.send(notification);
 	}
 }

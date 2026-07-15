@@ -23,6 +23,7 @@ public class NotificationApi {
 	@ResponseStatus(HttpStatus.ACCEPTED)
 	public NotificationRegisterResponse register(@Valid @RequestBody NotificationRegisterRequest request) {
 		Notification notification = notificationRegister.register(request);
+
 		return NotificationRegisterResponse.from(notification);
 	}
 }

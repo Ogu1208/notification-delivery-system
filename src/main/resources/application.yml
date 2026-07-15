@@ -19,6 +19,7 @@ notification:
   outbox:
     publisher-enabled: false
     polling-interval-ms: 1000
+    polling-batch-size: 100
   role:
     api-enabled: true
     worker-enabled: false

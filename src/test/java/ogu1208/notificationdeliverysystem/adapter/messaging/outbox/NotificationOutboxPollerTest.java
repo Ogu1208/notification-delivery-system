@@ -11,13 +11,13 @@ import ogu1208.notificationdeliverysystem.application.notification.NotificationO
 class NotificationOutboxPollerTest {
 
 	private final NotificationOutboxPublishService outboxPublishService = mock(NotificationOutboxPublishService.class);
-	private final NotificationOutboxPoller outboxPoller = new NotificationOutboxPoller(outboxPublishService);
+	private final NotificationOutboxPoller outboxPoller = new NotificationOutboxPoller(outboxPublishService, 50);
 
 	@Test
 	@DisplayName("Outbox polling 시 대기 중인 이벤트 발행을 위임한다")
 	void publishPendingEvents() {
 		outboxPoller.publishPendingEvents();
 
-		verify(outboxPublishService).publishPending();
+		verify(outboxPublishService).publishPending(50);
 	}
 }

@@ -10,11 +10,13 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
+import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventNotifier;
 import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
@@ -30,10 +32,12 @@ class NotificationRegisterTest {
 	private final FakeNotificationRepository repository = new FakeNotificationRepository();
 	private final StubExternalNotificationSender externalSender = new StubExternalNotificationSender();
 	private final SpyOutboxEventRepository outboxEventRepository = new SpyOutboxEventRepository();
+	private final SpyOutboxEventNotifier outboxEventNotifier = new SpyOutboxEventNotifier();
 	private final NotificationRegister notificationRegister = new NotificationModifyService(
 		repository,
 		externalSender,
-		outboxEventRepository
+		outboxEventRepository,
+		outboxEventNotifier
 	);
 
 	@Test
@@ -48,6 +52,8 @@ class NotificationRegisterTest {
 		assertThat(repository.findByRequestIdValue("req-001")).containsSame(notification);
 		assertThat(outboxEventRepository.savedEvent.getAggregateId()).isEqualTo(notification.getId());
 		assertThat(outboxEventRepository.saveCount).isEqualTo(1);
+		assertThat(outboxEventNotifier.notifiedNotificationId).isEqualTo(notification.getId());
+		assertThat(outboxEventNotifier.notifyCount).isEqualTo(1);
 	}
 
 	@Test
@@ -67,6 +73,7 @@ class NotificationRegisterTest {
 		assertThat(notification).isSameAs(existing);
 		assertThat(repository.saveCount).isEqualTo(1);
 		assertThat(outboxEventRepository.saveCount).isZero();
+		assertThat(outboxEventNotifier.notifyCount).isZero();
 	}
 
 	private static class FakeNotificationRepository implements NotificationRepository {
@@ -116,8 +123,25 @@ class NotificationRegisterTest {
 		}
 
 		@Override
-		public List<OutboxEvent> findByStatus(OutboxEventStatus status) {
+		public List<OutboxEvent> findByStatusOrderByIdAsc(OutboxEventStatus status, Pageable pageable) {
 			return List.of();
+		}
+
+		@Override
+		public Optional<OutboxEvent> findByAggregateIdAndStatus(Long aggregateId, OutboxEventStatus status) {
+			return Optional.empty();
+		}
+	}
+
+	private static class SpyOutboxEventNotifier implements OutboxEventNotifier {
+
+		private Long notifiedNotificationId;
+		private int notifyCount;
+
+		@Override
+		public void notifySaved(Long notificationId) {
+			notifiedNotificationId = notificationId;
+			notifyCount++;
 		}
 	}
 }

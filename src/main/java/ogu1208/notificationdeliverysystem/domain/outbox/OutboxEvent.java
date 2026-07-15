@@ -7,6 +7,8 @@ import java.time.LocalDateTime;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,6 +16,10 @@ import ogu1208.notificationdeliverysystem.domain.common.BaseEntity;
 
 @Getter
 @Entity
+@Table(indexes = {
+	@Index(name = "idx_outbox_event_status_id", columnList = "status, id"),
+	@Index(name = "idx_outbox_event_aggregate_status", columnList = "aggregateId, status")
+})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OutboxEvent extends BaseEntity {
 

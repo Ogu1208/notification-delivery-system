@@ -28,6 +28,7 @@ public class ApiControllerAdvice extends ResponseEntityExceptionHandler {
 			validationDescription(exception),
 			exception
 		);
+
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
 	}
 
@@ -55,8 +56,10 @@ public class ApiControllerAdvice extends ResponseEntityExceptionHandler {
 
 	private static ProblemDetail getProblemDetail(HttpStatus status, String description, Exception exception) {
 		ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(status, description);
+
 		problemDetail.setProperty("timestamp", LocalDateTime.now());
 		problemDetail.setProperty("exception", exception.getClass().getSimpleName());
+
 		return problemDetail;
 	}
 }

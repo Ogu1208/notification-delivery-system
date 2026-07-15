@@ -12,6 +12,7 @@ import ogu1208.notificationdeliverysystem.application.notification.provided.Noti
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
+import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventNotifier;
 import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
@@ -28,6 +29,7 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 	private final NotificationRepository notificationRepository;
 	private final ExternalNotificationSender externalNotificationSender;
 	private final OutboxEventRepository outboxEventRepository;
+	private final OutboxEventNotifier outboxEventNotifier;
 
 	@Override
 	public Notification register(@Valid NotificationRegisterRequest request) {
@@ -38,7 +40,10 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 	private Notification registerNewNotification(NotificationRegisterRequest request) {
 		Notification notification = Notification.register(request);
 		Notification savedNotification = notificationRepository.save(notification);
+
 		outboxEventRepository.save(OutboxEvent.singleNotificationSend(savedNotification.getId()));
+		outboxEventNotifier.notifySaved(savedNotification.getId());
+
 		return savedNotification;
 	}
 
@@ -46,6 +51,7 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 	public void send(Long notificationId) {
 		Notification notification = notificationRepository.findById(notificationId)
 			.orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다"));
+
 		if (notification.isCompleted()) {
 			log.info(
 				"완료 상태 알림 발송 건너뜀. notificationId={}, status={}",
@@ -54,7 +60,9 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 			);
 			return;
 		}
+
 		notification.startSending();
+
 		try {
 			externalNotificationSender.send(notification);
 		} catch (RuntimeException e) {
@@ -62,6 +70,7 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 			log.warn("알림 발송 실패. notificationId={}, reason={}", notification.getId(), e.getMessage());
 			return;
 		}
+
 		notification.markSent();
 	}
 }

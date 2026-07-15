@@ -9,10 +9,12 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Pageable;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
+import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventNotifier;
 import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
@@ -25,10 +27,12 @@ class NotificationSenderTest {
 	private final FakeNotificationRepository repository = new FakeNotificationRepository();
 	private final SpyExternalNotificationSender externalSender = new SpyExternalNotificationSender();
 	private final StubOutboxEventRepository outboxEventRepository = new StubOutboxEventRepository();
+	private final StubOutboxEventNotifier outboxEventNotifier = new StubOutboxEventNotifier();
 	private final NotificationSender notificationSender = new NotificationModifyService(
 		repository,
 		externalSender,
-		outboxEventRepository
+		outboxEventRepository,
+		outboxEventNotifier
 	);
 
 	@Test
@@ -108,8 +112,20 @@ class NotificationSenderTest {
 		}
 
 		@Override
-		public List<OutboxEvent> findByStatus(OutboxEventStatus status) {
+		public List<OutboxEvent> findByStatusOrderByIdAsc(OutboxEventStatus status, Pageable pageable) {
 			return List.of();
+		}
+
+		@Override
+		public Optional<OutboxEvent> findByAggregateIdAndStatus(Long aggregateId, OutboxEventStatus status) {
+			return Optional.empty();
+		}
+	}
+
+	private static class StubOutboxEventNotifier implements OutboxEventNotifier {
+
+		@Override
+		public void notifySaved(Long notificationId) {
 		}
 	}
 

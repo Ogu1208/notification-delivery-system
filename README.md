@@ -17,6 +17,7 @@
 - Kafka 연결 전 단계의 fallback 메시지 발행 대역
 
 Redis 분산락은 이후 단계에서 연결합니다.
+Outbox Pattern도 기본 흐름 완료 후 추가해 DB 저장과 Kafka 발행 사이의 신뢰성을 보강할 예정입니다.
 
 그룹/대량 발송은 현재 범위에서 제외합니다.
 이후 필요하면 `NotificationGroup`을 추가합니다.
@@ -48,6 +49,9 @@ notification:
 
 Kafka record key는 `notificationId`를 사용합니다.
 Consumer가 처리할 대상이 DB에 저장된 단건 알림이기 때문입니다.
+
+현재 Kafka 발행은 `KafkaTemplate.send(...).join()`으로 완료를 확인한 뒤 응답합니다.
+다음 단계에서는 Outbox Pattern을 추가해 알림 저장과 발행 이벤트 저장을 같은 DB 트랜잭션으로 묶는 방향으로 보강합니다.
 
 `requestId`는 클라이언트 retry 중복 방지에 사용합니다.
 같은 `requestId` 요청은 새 알림을 만들지 않고 기존 알림을 반환합니다.

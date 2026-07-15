@@ -13,7 +13,7 @@ public record NotificationRegisterResponse(
 		return new NotificationRegisterResponse(
 			notification.getId(),
 			notification.getStatus(),
-			notification.getRequestId()
+			notification.getRequestId().value()
 		);
 	}
 }

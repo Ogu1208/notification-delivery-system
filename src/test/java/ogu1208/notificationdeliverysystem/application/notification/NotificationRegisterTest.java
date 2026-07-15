@@ -9,12 +9,13 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
-import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegisterRequest;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
+import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
+import ogu1208.notificationdeliverysystem.domain.notification.RequestId;
 
 class NotificationRegisterTest {
 
@@ -35,21 +36,21 @@ class NotificationRegisterTest {
 		Notification notification = notificationRegister.register(request);
 
 		assertThat(notification.getStatus()).isEqualTo(NotificationStatus.PENDING);
-		assertThat(notification.getRequestId()).isEqualTo("req-001");
-		assertThat(repository.findByRequestId("req-001")).containsSame(notification);
+		assertThat(notification.getRequestId()).isEqualTo(new RequestId("req-001"));
+		assertThat(repository.findByRequestIdValue("req-001")).containsSame(notification);
 		assertThat(publisher.publishedNotification).isSameAs(notification);
 		assertThat(publisher.publishCount).isEqualTo(1);
 	}
 
 	@Test
 	void registerReturnsExistingNotificationWhenRequestIdAlreadyExists() {
-		Notification existing = Notification.register(
+		Notification existing = Notification.register(new NotificationRegisterRequest(
 			"req-001",
 			"user@example.com",
 			NotificationChannel.EMAIL,
 			"welcome",
 			"hello"
-		);
+		));
 		repository.save(existing);
 		NotificationRegisterRequest request = new NotificationRegisterRequest(
 			"req-001",
@@ -73,13 +74,13 @@ class NotificationRegisterTest {
 
 		@Override
 		public Notification save(Notification notification) {
-			notifications.put(notification.getRequestId(), notification);
+			notifications.put(notification.getRequestId().value(), notification);
 			saveCount++;
 			return notification;
 		}
 
 		@Override
-		public Optional<Notification> findByRequestId(String requestId) {
+		public Optional<Notification> findByRequestIdValue(String requestId) {
 			return Optional.ofNullable(notifications.get(requestId));
 		}
 	}

@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import ogu1208.notificationdeliverysystem.adapter.webapi.dto.NotificationRegisterResponse;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
-import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegisterRequest;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
+import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
 
 @RestController
 public class NotificationApi {

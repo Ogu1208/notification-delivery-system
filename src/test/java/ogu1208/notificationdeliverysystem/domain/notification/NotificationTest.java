@@ -9,15 +9,15 @@ class NotificationTest {
 
 	@Test
 	void registerCreatesPendingNotification() {
-		Notification notification = Notification.register(
+		Notification notification = Notification.register(new NotificationRegisterRequest(
 			"req-001",
 			"user@example.com",
 			NotificationChannel.EMAIL,
 			"welcome",
 			"hello"
-		);
+		));
 
-		assertThat(notification.getRequestId()).isEqualTo("req-001");
+		assertThat(notification.getRequestId()).isEqualTo(new RequestId("req-001"));
 		assertThat(notification.getReceiver()).isEqualTo("user@example.com");
 		assertThat(notification.getChannel()).isEqualTo(NotificationChannel.EMAIL);
 		assertThat(notification.getStatus()).isEqualTo(NotificationStatus.PENDING);
@@ -26,32 +26,32 @@ class NotificationTest {
 
 	@Test
 	void registerRejectsBlankRequiredValues() {
-		assertThatThrownBy(() -> Notification.register(" ", "user@example.com", NotificationChannel.EMAIL, "title", "content"))
+		assertThatThrownBy(() -> Notification.register(new NotificationRegisterRequest(" ", "user@example.com", NotificationChannel.EMAIL, "title", "content")))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("요청 ID는 필수입니다");
-		assertThatThrownBy(() -> Notification.register("req-001", " ", NotificationChannel.EMAIL, "title", "content"))
+		assertThatThrownBy(() -> Notification.register(new NotificationRegisterRequest("req-001", " ", NotificationChannel.EMAIL, "title", "content")))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("수신자는 필수입니다");
-		assertThatThrownBy(() -> Notification.register("req-001", "user@example.com", null, "title", "content"))
-			.isInstanceOf(IllegalArgumentException.class)
+		assertThatThrownBy(() -> Notification.register(new NotificationRegisterRequest("req-001", "user@example.com", null, "title", "content")))
+			.isInstanceOf(NullPointerException.class)
 			.hasMessage("발송 채널은 필수입니다");
-		assertThatThrownBy(() -> Notification.register("req-001", "user@example.com", NotificationChannel.EMAIL, " ", "content"))
+		assertThatThrownBy(() -> Notification.register(new NotificationRegisterRequest("req-001", "user@example.com", NotificationChannel.EMAIL, " ", "content")))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("제목은 필수입니다");
-		assertThatThrownBy(() -> Notification.register("req-001", "user@example.com", NotificationChannel.EMAIL, "title", " "))
+		assertThatThrownBy(() -> Notification.register(new NotificationRegisterRequest("req-001", "user@example.com", NotificationChannel.EMAIL, "title", " ")))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("본문은 필수입니다");
 	}
 
 	@Test
 	void notificationCanMoveFromPendingToSendingToSent() {
-		Notification notification = Notification.register(
+		Notification notification = Notification.register(new NotificationRegisterRequest(
 			"req-001",
 			"user@example.com",
 			NotificationChannel.EMAIL,
 			"welcome",
 			"hello"
-		);
+		));
 
 		notification.startSending();
 		notification.markSent();
@@ -60,18 +60,18 @@ class NotificationTest {
 		assertThat(notification.getAttemptCount()).isEqualTo(1);
 		assertThat(notification.getSendingStartedAt()).isNotNull();
 		assertThat(notification.getSentAt()).isNotNull();
-		assertThat(notification.isTerminal()).isTrue();
+		assertThat(notification.isCompleted()).isTrue();
 	}
 
 	@Test
-	void terminalNotificationCannotStartSendingAgain() {
-		Notification notification = Notification.register(
+	void completedNotificationCannotStartSendingAgain() {
+		Notification notification = Notification.register(new NotificationRegisterRequest(
 			"req-001",
 			"user@example.com",
 			NotificationChannel.EMAIL,
 			"welcome",
 			"hello"
-		);
+		));
 		notification.startSending();
 		notification.markFailed("네트워크 오류");
 
@@ -79,6 +79,6 @@ class NotificationTest {
 			.isInstanceOf(IllegalStateException.class)
 			.hasMessage("최종 상태의 알림은 발송을 시작할 수 없습니다");
 		assertThat(notification.getFailureReason()).isEqualTo("네트워크 오류");
-		assertThat(notification.isTerminal()).isTrue();
+		assertThat(notification.isCompleted()).isTrue();
 	}
 }

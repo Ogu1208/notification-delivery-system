@@ -1,8 +1,7 @@
-package ogu1208.notificationdeliverysystem.application.notification.provided;
+package ogu1208.notificationdeliverysystem.domain.notification;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
 
 public record NotificationRegisterRequest(
 	@NotBlank(message = "요청 ID는 필수입니다") String requestId,

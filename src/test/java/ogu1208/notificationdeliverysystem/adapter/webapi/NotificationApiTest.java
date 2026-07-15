@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
+import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
 
 @WebMvcTest(NotificationApi.class)
 class NotificationApiTest {
@@ -29,13 +30,13 @@ class NotificationApiTest {
 
 	@Test
 	void registerNotificationReturnsAcceptedResponse() throws Exception {
-		Notification notification = Notification.register(
+		Notification notification = Notification.register(new NotificationRegisterRequest(
 			"req-001",
 			"user@example.com",
 			NotificationChannel.EMAIL,
 			"welcome",
 			"hello"
-		);
+		));
 		ReflectionTestUtils.setField(notification, "id", 1L);
 		when(notificationRegister.register(any())).thenReturn(notification);
 

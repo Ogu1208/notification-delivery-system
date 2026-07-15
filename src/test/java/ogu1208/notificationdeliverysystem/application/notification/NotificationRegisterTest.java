@@ -139,7 +139,7 @@ class NotificationRegisterTest {
 		private int notifyCount;
 
 		@Override
-		public void notifySaved(Long notificationId) {
+		public void notifyOutboxSaved(Long notificationId) {
 			notifiedNotificationId = notificationId;
 			notifyCount++;
 		}

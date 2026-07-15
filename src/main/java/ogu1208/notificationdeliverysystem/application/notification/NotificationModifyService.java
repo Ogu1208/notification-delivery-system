@@ -42,7 +42,7 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 		Notification savedNotification = notificationRepository.save(notification);
 
 		outboxEventRepository.save(OutboxEvent.singleNotificationSend(savedNotification.getId()));
-		outboxEventNotifier.notifySaved(savedNotification.getId());
+		outboxEventNotifier.notifyOutboxSaved(savedNotification.getId());
 
 		return savedNotification;
 	}

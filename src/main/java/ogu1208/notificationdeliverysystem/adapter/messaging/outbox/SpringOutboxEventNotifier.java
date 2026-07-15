@@ -13,7 +13,7 @@ public class SpringOutboxEventNotifier implements OutboxEventNotifier {
 	private final ApplicationEventPublisher applicationEventPublisher;
 
 	@Override
-	public void notifySaved(Long notificationId) {
+	public void notifyOutboxSaved(Long notificationId) {
 		applicationEventPublisher.publishEvent(new NotificationOutboxSavedEvent(notificationId));
 	}
 }

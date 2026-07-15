@@ -125,7 +125,7 @@ class NotificationSenderTest {
 	private static class StubOutboxEventNotifier implements OutboxEventNotifier {
 
 		@Override
-		public void notifySaved(Long notificationId) {
+		public void notifyOutboxSaved(Long notificationId) {
 		}
 	}
 

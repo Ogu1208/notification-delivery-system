@@ -4,7 +4,7 @@
 
 ## 현재 구현 범위
 
-현재 구현은 기본 요청 저장 흐름과 Kafka Producer 연결까지 포함합니다.
+현재 구현은 기본 요청 저장 흐름, Kafka Producer/Consumer, 채널별 Mock Sender 연결까지 포함합니다.
 
 - `POST /notifications`
 - 알림 도메인 모델과 상태 전이
@@ -12,10 +12,15 @@
 - 같은 `requestId` 재요청 시 기존 알림 반환
 - H2/JPA 저장과 `requestId` 유니크 제약
 - 단건 알림 발송 topic(`single-notification-send`)으로 Kafka 메시지 발행
+- Kafka Consumer가 단건 알림 메시지를 소비해 발송 유스케이스 호출
+- EMAIL, SMS, KAKAO 채널별 Mock Sender 로그 발송
 - Kafka 연결 전 단계의 fallback 메시지 발행 대역
 
-Kafka Consumer, Redis 분산락, Mock Sender는 이후 단계에서 연결합니다.
-그룹/대량 발송은 현재 범위에서 제외합니다. 이후 필요하면 `NotificationGroup`을 추가해 여러 단건 알림을 묶고, 단건 `Notification`은 개별 수신자와 발송 상태만 책임지도록 확장합니다.
+Redis 분산락은 이후 단계에서 연결합니다.
+
+그룹/대량 발송은 현재 범위에서 제외합니다.
+이후 필요하면 `NotificationGroup`을 추가합니다.
+단건 `Notification`은 개별 수신자와 발송 상태만 책임지도록 확장합니다.
 
 ## 실행 역할 분리 방향
 
@@ -33,8 +38,26 @@ notification:
 - Worker 서버: Kafka Consumer, Redis 분산락, Mock Sender를 담당합니다.
 - 로컬 통합 실행: 두 값을 모두 `true`로 두고 한 프로세스에서 전체 흐름을 확인할 수 있습니다.
 
-현재 단계에서는 Producer까지 구현되어 있고, Consumer bean 조건 분리는 Consumer를 추가하는 단계에서 적용합니다.
-멀티모듈은 현재 범위에서 제외하지만 `domain`, `application`, `adapter` 경계를 유지해 이후 `core`, `api-app`, `worker-app` 형태로 분리할 수 있게 합니다.
+현재 단계에서는 Consumer bean에 `notification.role.worker-enabled=true` 조건을 적용했습니다.
+
+멀티모듈은 현재 범위에서 제외합니다.
+대신 `domain`, `application`, `adapter` 경계를 유지합니다.
+이후 `core`, `api-app`, `worker-app` 형태로 분리하기 쉽게 하기 위해서입니다.
+
+## Kafka 처리 판단
+
+Kafka record key는 `notificationId`를 사용합니다.
+Consumer가 처리할 대상이 DB에 저장된 단건 알림이기 때문입니다.
+
+`requestId`는 클라이언트 retry 중복 방지에 사용합니다.
+같은 `requestId` 요청은 새 알림을 만들지 않고 기존 알림을 반환합니다.
+
+이미 `SENT` 또는 `FAILED`인 알림이 Kafka에서 다시 전달되면 발송을 건너뜁니다.
+이는 오류가 아니라 Kafka at-least-once 재전달을 고려한 멱등 처리입니다.
+
+`NotificationModifyService`는 `ExternalNotificationSender` 포트에만 의존합니다.
+실제 구현체는 `MockNotificationSenderRouter`입니다.
+Router가 알림 채널을 보고 EMAIL, SMS, KAKAO Sender 중 하나를 선택합니다.
 
 ## API
 

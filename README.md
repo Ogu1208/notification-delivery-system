@@ -4,20 +4,20 @@
 
 ## 현재 구현 범위
 
-현재 구현은 기본 요청 저장 흐름, Kafka Producer/Consumer, 채널별 Mock Sender 연결까지 포함합니다.
+현재 구현은 기본 요청 저장 흐름, Outbox 기반 Kafka 발행, Kafka Consumer, 채널별 Mock Sender 연결까지 포함합니다.
 
 - `POST /notifications`
 - 알림 도메인 모델과 상태 전이
 - `requestId` 필수 검증
 - 같은 `requestId` 재요청 시 기존 알림 반환
 - H2/JPA 저장과 `requestId` 유니크 제약
-- 단건 알림 발송 topic(`single-notification-send`)으로 Kafka 메시지 발행
+- 알림 저장과 같은 트랜잭션에서 Outbox 이벤트 저장
+- Outbox polling publisher가 단건 알림 발송 topic(`single-notification-send`)으로 Kafka 메시지 발행
 - Kafka Consumer가 단건 알림 메시지를 소비해 발송 유스케이스 호출
 - EMAIL, SMS, KAKAO 채널별 Mock Sender 로그 발송
 - Kafka 연결 전 단계의 fallback 메시지 발행 대역
 
 Redis 분산락은 이후 단계에서 연결합니다.
-Outbox Pattern도 기본 흐름 완료 후 추가해 DB 저장과 Kafka 발행 사이의 신뢰성을 보강할 예정입니다.
 
 그룹/대량 발송은 현재 범위에서 제외합니다.
 이후 필요하면 `NotificationGroup`을 추가합니다.
@@ -30,16 +30,21 @@ Outbox Pattern도 기본 흐름 완료 후 추가해 DB 저장과 Kafka 발행 �
 
 ```yaml
 notification:
+  outbox:
+    publisher-enabled: false
+    polling-interval-ms: 1000
   role:
     api-enabled: true
     worker-enabled: false
 ```
 
-- API 서버: Web API, DB 저장, Kafka Producer를 담당합니다.
+- API 서버: Web API, DB 저장, Outbox 저장을 담당합니다.
+- Outbox Publisher: Outbox 이벤트를 읽어 Kafka Producer를 호출합니다.
 - Worker 서버: Kafka Consumer, Redis 분산락, Mock Sender를 담당합니다.
 - 로컬 통합 실행: 두 값을 모두 `true`로 두고 한 프로세스에서 전체 흐름을 확인할 수 있습니다.
 
 현재 단계에서는 Consumer bean에 `notification.role.worker-enabled=true` 조건을 적용했습니다.
+Outbox polling publisher는 `notification.outbox.publisher-enabled=true`일 때 활성화됩니다.
 
 멀티모듈은 현재 범위에서 제외합니다.
 대신 `domain`, `application`, `adapter` 경계를 유지합니다.
@@ -50,8 +55,10 @@ notification:
 Kafka record key는 `notificationId`를 사용합니다.
 Consumer가 처리할 대상이 DB에 저장된 단건 알림이기 때문입니다.
 
-현재 Kafka 발행은 `KafkaTemplate.send(...).join()`으로 완료를 확인한 뒤 응답합니다.
-다음 단계에서는 Outbox Pattern을 추가해 알림 저장과 발행 이벤트 저장을 같은 DB 트랜잭션으로 묶는 방향으로 보강합니다.
+현재 API 응답 조건은 DB에 알림과 Outbox 이벤트를 저장하는 것입니다.
+Kafka 발행은 Outbox polling publisher가 별도로 수행합니다.
+
+Outbox publisher 내부의 Kafka 발행은 `KafkaTemplate.send(...).join()`으로 완료를 확인한 뒤 Outbox 이벤트를 `PUBLISHED`로 변경합니다.
 
 `requestId`는 클라이언트 retry 중복 방지에 사용합니다.
 같은 `requestId` 요청은 새 알림을 만들지 않고 기존 알림을 반환합니다.

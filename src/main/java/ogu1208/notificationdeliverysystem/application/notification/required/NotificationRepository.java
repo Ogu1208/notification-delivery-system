@@ -10,5 +10,7 @@ public interface NotificationRepository extends Repository<Notification, Long> {
 
 	Notification save(Notification notification);
 
+	Optional<Notification> findById(Long id);
+
 	Optional<Notification> findByRequestIdValue(String requestId);
 }

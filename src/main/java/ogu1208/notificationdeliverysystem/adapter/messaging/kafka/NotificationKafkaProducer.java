@@ -23,6 +23,7 @@ public class NotificationKafkaProducer implements NotificationMessagePublisher {
 
 	@Override
 	public void publish(Notification notification) {
+		// KafkaTemplate은 Spring Boot가 application.yml의 spring.kafka 설정으로 자동 구성한다.
 		kafkaTemplate.send(
 			topic,
 			String.valueOf(notification.getId()),

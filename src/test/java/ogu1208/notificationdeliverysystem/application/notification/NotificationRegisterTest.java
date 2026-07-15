@@ -11,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
+import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
@@ -24,7 +25,12 @@ class NotificationRegisterTest {
 
 	private final FakeNotificationRepository repository = new FakeNotificationRepository();
 	private final SpyNotificationMessagePublisher publisher = new SpyNotificationMessagePublisher();
-	private final NotificationRegister notificationRegister = new NotificationModifyService(repository, publisher);
+	private final StubExternalNotificationSender externalSender = new StubExternalNotificationSender();
+	private final NotificationRegister notificationRegister = new NotificationModifyService(
+		repository,
+		publisher,
+		externalSender
+	);
 
 	@Test
 	@DisplayName("알림 등록 요청을 저장하고 발행 메시지를 요청한다")
@@ -75,6 +81,11 @@ class NotificationRegisterTest {
 		public Optional<Notification> findByRequestIdValue(String requestId) {
 			return Optional.ofNullable(notifications.get(requestId));
 		}
+
+		@Override
+		public Optional<Notification> findById(Long id) {
+			return Optional.empty();
+		}
 	}
 
 	private static class SpyNotificationMessagePublisher implements NotificationMessagePublisher {
@@ -86,6 +97,13 @@ class NotificationRegisterTest {
 		public void publish(Notification notification) {
 			publishedNotification = notification;
 			publishCount++;
+		}
+	}
+
+	private static class StubExternalNotificationSender implements ExternalNotificationSender {
+
+		@Override
+		public void send(Notification notification) {
 		}
 	}
 }

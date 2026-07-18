@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationSender;
@@ -28,7 +27,7 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 	private final NotificationRegisterTransactionService registerTransactionService;
 
 	@Override
-	public Notification register(@Valid NotificationRegisterRequest request) {
+	public Notification register(NotificationRegisterRequest request) {
 		return registerTransactionService.findByRequestId(request.requestId())
 			.orElseGet(() -> registerNewOrFindExisting(request));
 	}

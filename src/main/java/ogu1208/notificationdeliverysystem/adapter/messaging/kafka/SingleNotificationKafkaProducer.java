@@ -8,14 +8,14 @@ import ogu1208.notificationdeliverysystem.application.notification.required.Noti
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 
 @Component
-public class NotificationKafkaProducer implements NotificationMessagePublisher {
+public class SingleNotificationKafkaProducer implements NotificationMessagePublisher {
 
-	private final KafkaTemplate<String, NotificationMessage> kafkaTemplate;
+	private final KafkaTemplate<String, SingleNotificationMessage> kafkaTemplate;
 	private final String topic;
 
-	public NotificationKafkaProducer(
-		KafkaTemplate<String, NotificationMessage> kafkaTemplate,
-		@Value("${notification.kafka.topic}") String topic
+	public SingleNotificationKafkaProducer(
+		KafkaTemplate<String, SingleNotificationMessage> kafkaTemplate,
+		@Value("${notification.kafka.topics.single-notification-send}") String topic
 	) {
 		this.kafkaTemplate = kafkaTemplate;
 		this.topic = topic;
@@ -27,7 +27,7 @@ public class NotificationKafkaProducer implements NotificationMessagePublisher {
 		kafkaTemplate.send(
 			topic,
 			String.valueOf(notification.getId()),
-			NotificationMessage.from(notification)
+			SingleNotificationMessage.from(notification)
 		).join();
 	}
 }

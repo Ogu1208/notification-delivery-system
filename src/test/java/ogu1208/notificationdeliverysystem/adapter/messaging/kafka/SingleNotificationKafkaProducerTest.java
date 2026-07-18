@@ -19,15 +19,15 @@ import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
 
 @ExtendWith(MockitoExtension.class)
-class NotificationKafkaProducerTest {
+class SingleNotificationKafkaProducerTest {
 
 	@Mock
-	private KafkaTemplate<String, NotificationMessage> kafkaTemplate;
+	private KafkaTemplate<String, SingleNotificationMessage> kafkaTemplate;
 
 	@Test
 	@DisplayName("단건 알림 발송 토픽에 알림 메시지를 발행한다")
 	void publishSendsSingleNotificationMessageToKafkaTopic() {
-		NotificationKafkaProducer producer = new NotificationKafkaProducer(
+		SingleNotificationKafkaProducer producer = new SingleNotificationKafkaProducer(
 			kafkaTemplate,
 			"single-notification-send"
 		);

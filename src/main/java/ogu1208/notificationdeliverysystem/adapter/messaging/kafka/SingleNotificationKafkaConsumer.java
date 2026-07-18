@@ -10,13 +10,13 @@ import ogu1208.notificationdeliverysystem.application.notification.provided.Noti
 @Component
 @ConditionalOnProperty(name = "notification.role.worker-enabled", havingValue = "true")
 @RequiredArgsConstructor
-public class NotificationKafkaConsumer {
+public class SingleNotificationKafkaConsumer {
 
 	private final NotificationSender notificationSender;
 
 	// 기본 container factory와 group-id는 application.yml의 spring.kafka.consumer 설정을 사용
-	@KafkaListener(topics = "${notification.kafka.topic}")
-	public void consume(NotificationMessage message) {
+	@KafkaListener(topics = "${notification.kafka.topics.single-notification-send}")
+	public void consume(SingleNotificationMessage message) {
 		notificationSender.send(message.notificationId());
 	}
 }

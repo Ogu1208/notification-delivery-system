@@ -121,7 +121,8 @@ flowchart TD
 ```yaml
 notification:
   kafka:
-    topic: single-notification-send
+    topics:
+      single-notification-send: single-notification-send
   outbox:
     publisher-enabled: false
     polling-interval-ms: 1000

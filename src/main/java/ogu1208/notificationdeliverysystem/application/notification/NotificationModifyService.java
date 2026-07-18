@@ -2,6 +2,7 @@ package ogu1208.notificationdeliverysystem.application.notification;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -12,15 +13,11 @@ import ogu1208.notificationdeliverysystem.application.notification.provided.Noti
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
-import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventNotifier;
-import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
-import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
 
 @Service
 @Validated
-@Transactional
 @RequiredArgsConstructor
 public class NotificationModifyService implements NotificationRegister, NotificationSender {
 
@@ -28,26 +25,38 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 
 	private final NotificationRepository notificationRepository;
 	private final ExternalNotificationSender externalNotificationSender;
-	private final OutboxEventRepository outboxEventRepository;
-	private final OutboxEventNotifier outboxEventNotifier;
+	private final NotificationRegisterTransactionService registerTransactionService;
 
 	@Override
 	public Notification register(@Valid NotificationRegisterRequest request) {
-		return notificationRepository.findByRequestId(request.requestId())
-			.orElseGet(() -> registerNewNotification(request));
+		return registerTransactionService.findByRequestId(request.requestId())
+			.orElseGet(() -> registerNewOrFindExisting(request));
 	}
 
-	private Notification registerNewNotification(NotificationRegisterRequest request) {
-		Notification notification = Notification.register(request);
-		Notification savedNotification = notificationRepository.save(notification);
-
-		outboxEventRepository.save(OutboxEvent.singleNotificationSend(savedNotification.getId()));
-		outboxEventNotifier.notifyOutboxSaved(savedNotification.getId());
-
-		return savedNotification;
+	/*
+	 * 동시 중복 요청 방어
+	 *
+	 * 먼저 조회했을 때 없더라도, 다른 요청이 먼저 insert 하면 unique 제약 위반이 발생할 수 있다.
+	 * 제약 위반이 난 트랜잭션은 rollback-only 또는 Hibernate 세션 실패 상태가 될 수 있으므로
+	 * 저장 트랜잭션이 롤백된 뒤, 분리된 조회 트랜잭션으로 기존 알림을 다시 찾아 멱등 응답을 맞춘다.
+	 */
+	private Notification registerNewOrFindExisting(NotificationRegisterRequest request) {
+		try {
+			return registerTransactionService.registerNewNotification(request);
+		} catch (DataIntegrityViolationException e) {
+			return registerTransactionService.findByRequestId(request.requestId())
+				.orElseThrow(() -> e);
+		}
 	}
 
+	/**
+	 * Kafka at-least-once 재전달 대비
+	 *
+	 * 같은 메시지가 다시 와도 이미 완료된 알림은 외부 발송을 반복하지 않는다.
+	 * 동시 발송 방지는 이후 Redis 분산락 단계에서 보강한다.
+	 */
 	@Override
+	@Transactional
 	public void send(Long notificationId) {
 		Notification notification = notificationRepository.findById(notificationId)
 			.orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다"));

@@ -10,6 +10,7 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -34,11 +35,15 @@ class NotificationRegisterTest {
 	private final StubExternalNotificationSender externalSender = new StubExternalNotificationSender();
 	private final SpyOutboxEventRepository outboxEventRepository = new SpyOutboxEventRepository();
 	private final SpyOutboxEventNotifier outboxEventNotifier = new SpyOutboxEventNotifier();
+	private final NotificationRegisterTransactionService registerTransactionService = new NotificationRegisterTransactionService(
+		repository,
+		outboxEventRepository,
+		outboxEventNotifier
+	);
 	private final NotificationRegister notificationRegister = new NotificationModifyService(
 		repository,
 		externalSender,
-		outboxEventRepository,
-		outboxEventNotifier
+		registerTransactionService
 	);
 
 	@Test
@@ -78,14 +83,37 @@ class NotificationRegisterTest {
 		assertThat(outboxEventNotifier.notifyCount).isZero();
 	}
 
+	@Test
+	@DisplayName("동시 중복 요청으로 저장이 실패하면 기존 알림을 다시 조회해 반환한다")
+	void registerReturnsExistingNotificationWhenDuplicateSaveFails() {
+		Notification existing = Notification.register(createRequest());
+		repository.save(existing);
+		repository.missFirstFindByRequestId = true;
+		repository.failNextSaveWithDuplicateRequestId = true;
+
+		Notification notification = notificationRegister.register(createRequest());
+
+		assertThat(notification).isSameAs(existing);
+		assertThat(repository.saveCount).isEqualTo(1);
+		assertThat(outboxEventRepository.saveCount).isZero();
+		assertThat(outboxEventNotifier.notifyCount).isZero();
+	}
+
 	private static class FakeNotificationRepository implements NotificationRepository {
 
 		private final Map<String, Notification> notifications = new LinkedHashMap<>();
 		private long idSequence = 1L;
 		private int saveCount;
+		private int findByRequestIdCount;
+		private boolean missFirstFindByRequestId;
+		private boolean failNextSaveWithDuplicateRequestId;
 
 		@Override
 		public Notification save(Notification notification) {
+			if (failNextSaveWithDuplicateRequestId) {
+				failNextSaveWithDuplicateRequestId = false;
+				throw new DataIntegrityViolationException("requestId unique constraint violation");
+			}
 			if (notification.getId() == null) {
 				ReflectionTestUtils.setField(notification, "id", idSequence++);
 			}
@@ -96,6 +124,10 @@ class NotificationRegisterTest {
 
 		@Override
 		public Optional<Notification> findByRequestId(String requestId) {
+			findByRequestIdCount++;
+			if (missFirstFindByRequestId && findByRequestIdCount == 1) {
+				return Optional.empty();
+			}
 			return Optional.ofNullable(notifications.get(requestId));
 		}
 

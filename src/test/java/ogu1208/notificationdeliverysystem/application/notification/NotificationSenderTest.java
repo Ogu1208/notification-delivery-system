@@ -29,11 +29,15 @@ class NotificationSenderTest {
 	private final SpyExternalNotificationSender externalSender = new SpyExternalNotificationSender();
 	private final StubOutboxEventRepository outboxEventRepository = new StubOutboxEventRepository();
 	private final StubOutboxEventNotifier outboxEventNotifier = new StubOutboxEventNotifier();
+	private final NotificationRegisterTransactionService registerTransactionService = new NotificationRegisterTransactionService(
+		repository,
+		outboxEventRepository,
+		outboxEventNotifier
+	);
 	private final NotificationSender notificationSender = new NotificationModifyService(
 		repository,
 		externalSender,
-		outboxEventRepository,
-		outboxEventNotifier
+		registerTransactionService
 	);
 
 	@Test

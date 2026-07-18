@@ -22,6 +22,9 @@ public class NotificationOutboxPoller {
 		this.batchSize = batchSize;
 	}
 
+	/**
+	 * 즉시 발행에서 처리되지 않은 PENDING Outbox 이벤트를 주기적으로 재발행
+	 */
 	@Scheduled(fixedDelayString = "${notification.outbox.polling-interval-ms:1000}")
 	public void publishPendingEvents() {
 		outboxPublishService.publishPending(batchSize);

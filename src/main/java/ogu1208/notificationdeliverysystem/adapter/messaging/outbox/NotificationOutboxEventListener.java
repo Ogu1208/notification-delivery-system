@@ -19,6 +19,11 @@ public class NotificationOutboxEventListener {
 
 	private final NotificationOutboxPublishService outboxPublishService;
 
+	/**
+	 * 알림과 Outbox 저장 트랜잭션이 commit된 뒤 즉시 Kafka 발행 시도
+	 *
+	 * <p>실패해도 예외를 전파하지 않는다. Outbox polling 경로가 남은 PENDING 이벤트를 재시도한다.</p>
+	 */
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	public void publishAfterCommit(NotificationOutboxSavedEvent event) {
 		try {

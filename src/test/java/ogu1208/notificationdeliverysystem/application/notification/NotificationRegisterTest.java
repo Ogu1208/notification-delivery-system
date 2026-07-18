@@ -49,7 +49,7 @@ class NotificationRegisterTest {
 
 		assertThat(notification.getStatus()).isEqualTo(NotificationStatus.PENDING);
 		assertThat(notification.getRequestId()).isEqualTo(new RequestId("req-001"));
-		assertThat(repository.findByRequestIdValue("req-001")).containsSame(notification);
+		assertThat(repository.findByRequestId("req-001")).containsSame(notification);
 		assertThat(outboxEventRepository.savedEvent.getAggregateId()).isEqualTo(notification.getId());
 		assertThat(outboxEventRepository.saveCount).isEqualTo(1);
 		assertThat(outboxEventNotifier.notifiedNotificationId).isEqualTo(notification.getId());
@@ -93,7 +93,7 @@ class NotificationRegisterTest {
 		}
 
 		@Override
-		public Optional<Notification> findByRequestIdValue(String requestId) {
+		public Optional<Notification> findByRequestId(String requestId) {
 			return Optional.ofNullable(notifications.get(requestId));
 		}
 

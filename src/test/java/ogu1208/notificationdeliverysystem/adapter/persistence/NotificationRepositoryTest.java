@@ -38,7 +38,7 @@ class NotificationRepositoryTest {
 		assertThat(savedNotification.getId()).isNotNull();
 		assertThat(savedNotification.getCreatedAt()).isNotNull();
 		assertThat(savedNotification.getUpdatedAt()).isNotNull();
-		assertThat(notificationRepository.findByRequestIdValue("req-001")).contains(savedNotification);
+		assertThat(notificationRepository.findByRequestId("req-001")).contains(savedNotification);
 	}
 
 	@Test

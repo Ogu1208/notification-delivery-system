@@ -108,7 +108,7 @@ class NotificationOutboxPublishServiceTest {
 		}
 
 		@Override
-		public Optional<Notification> findByRequestIdValue(String requestId) {
+		public Optional<Notification> findByRequestId(String requestId) {
 			return notifications.values()
 				.stream()
 				.filter(notification -> notification.getRequestId().value().equals(requestId))

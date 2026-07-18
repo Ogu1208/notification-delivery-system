@@ -33,7 +33,7 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 
 	@Override
 	public Notification register(@Valid NotificationRegisterRequest request) {
-		return notificationRepository.findByRequestIdValue(request.requestId())
+		return notificationRepository.findByRequestId(request.requestId())
 			.orElseGet(() -> registerNewNotification(request));
 	}
 

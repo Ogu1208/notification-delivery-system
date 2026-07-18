@@ -16,6 +16,7 @@ import ogu1208.notificationdeliverysystem.application.notification.required.Noti
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
 import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
+import ogu1208.notificationdeliverysystem.domain.outbox.OutboxAggregateType;
 import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
 import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEventStatus;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
@@ -141,8 +142,13 @@ class NotificationOutboxPublishServiceTest {
 		}
 
 		@Override
-		public Optional<OutboxEvent> findByAggregateIdAndStatus(Long aggregateId, OutboxEventStatus status) {
+		public Optional<OutboxEvent> findByAggregateTypeAndAggregateIdAndStatus(
+			OutboxAggregateType aggregateType,
+			Long aggregateId,
+			OutboxEventStatus status
+		) {
 			return events.stream()
+				.filter(outboxEvent -> outboxEvent.getAggregateType() == aggregateType)
 				.filter(outboxEvent -> outboxEvent.getAggregateId().equals(aggregateId))
 				.filter(outboxEvent -> outboxEvent.getStatus() == status)
 				.findFirst();

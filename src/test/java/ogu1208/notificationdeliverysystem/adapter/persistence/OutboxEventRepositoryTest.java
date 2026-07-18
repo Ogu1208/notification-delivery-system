@@ -13,6 +13,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
+import ogu1208.notificationdeliverysystem.domain.outbox.OutboxAggregateType;
 import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
 import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEventStatus;
 
@@ -32,11 +33,16 @@ class OutboxEventRepositoryTest {
 		OutboxEvent outboxEvent = outboxEventRepository.save(OutboxEvent.singleNotificationSend(1L));
 
 		assertThat(outboxEvent.getId()).isNotNull();
+		assertThat(outboxEvent.getAggregateType()).isEqualTo(OutboxAggregateType.NOTIFICATION);
 		assertThat(outboxEventRepository.findByStatusOrderByIdAsc(
 			OutboxEventStatus.PENDING,
 			PageRequest.of(0, 100)
 		)).contains(outboxEvent);
-		assertThat(outboxEventRepository.findByAggregateIdAndStatus(1L, OutboxEventStatus.PENDING))
+		assertThat(outboxEventRepository.findByAggregateTypeAndAggregateIdAndStatus(
+			OutboxAggregateType.NOTIFICATION,
+			1L,
+			OutboxEventStatus.PENDING
+		))
 			.contains(outboxEvent);
 		assertThat(outboxEventRepository.findByStatusOrderByIdAsc(
 			OutboxEventStatus.PUBLISHED,

@@ -53,11 +53,7 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 			.orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다"));
 
 		if (notification.isCompleted()) {
-			log.info(
-				"완료 상태 알림 발송 건너뜀. notificationId={}, status={}",
-				notification.getId(),
-				notification.getStatus()
-			);
+			log.info("완료 상태 알림 발송 건너뜀. notificationId={}, status={}", notification.getId(), notification.getStatus());
 			return;
 		}
 

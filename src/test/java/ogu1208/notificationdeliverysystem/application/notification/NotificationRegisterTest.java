@@ -23,6 +23,7 @@ import ogu1208.notificationdeliverysystem.domain.notification.NotificationChanne
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
 import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
+import ogu1208.notificationdeliverysystem.domain.outbox.OutboxAggregateType;
 import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEventStatus;
 import ogu1208.notificationdeliverysystem.domain.notification.RequestId;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
@@ -50,6 +51,7 @@ class NotificationRegisterTest {
 		assertThat(notification.getStatus()).isEqualTo(NotificationStatus.PENDING);
 		assertThat(notification.getRequestId()).isEqualTo(new RequestId("req-001"));
 		assertThat(repository.findByRequestId("req-001")).containsSame(notification);
+		assertThat(outboxEventRepository.savedEvent.getAggregateType()).isEqualTo(OutboxAggregateType.NOTIFICATION);
 		assertThat(outboxEventRepository.savedEvent.getAggregateId()).isEqualTo(notification.getId());
 		assertThat(outboxEventRepository.saveCount).isEqualTo(1);
 		assertThat(outboxEventNotifier.notifiedNotificationId).isEqualTo(notification.getId());
@@ -128,7 +130,11 @@ class NotificationRegisterTest {
 		}
 
 		@Override
-		public Optional<OutboxEvent> findByAggregateIdAndStatus(Long aggregateId, OutboxEventStatus status) {
+		public Optional<OutboxEvent> findByAggregateTypeAndAggregateIdAndStatus(
+			OutboxAggregateType aggregateType,
+			Long aggregateId,
+			OutboxEventStatus status
+		) {
 			return Optional.empty();
 		}
 	}

@@ -11,6 +11,7 @@ import ogu1208.notificationdeliverysystem.application.notification.required.Noti
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
 import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
+import ogu1208.notificationdeliverysystem.domain.outbox.OutboxAggregateType;
 import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
 import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEventStatus;
 
@@ -46,7 +47,11 @@ public class NotificationOutboxPublishService {
 	}
 
 	public boolean publishPendingByNotificationId(Long notificationId) {
-		return outboxEventRepository.findByAggregateIdAndStatus(notificationId, OutboxEventStatus.PENDING)
+		return outboxEventRepository.findByAggregateTypeAndAggregateIdAndStatus(
+				OutboxAggregateType.NOTIFICATION,
+				notificationId,
+				OutboxEventStatus.PENDING
+			)
 			.map(outboxEvent -> {
 				publish(outboxEvent);
 				return true;

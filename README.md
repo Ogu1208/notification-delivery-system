@@ -7,9 +7,10 @@ API 서버와 Worker 서버는 아직 물리적으로 분리하지 않았지만,
 
 ## 문서
 
-- [요구사항](docs/01-requirements.md)
-- [구현 내용](docs/02-implementation.md)
-- [설계 판단과 고민](docs/03-design-decisions.md)
+- [요구사항](docs/요구사항.md)
+- [구현 내용](docs/구현내용.md)
+- [설계 판단과 고민](docs/설계판단과고민.md)
+- [멱등성과 중복 처리](docs/멱등성과중복처리.md)
 - [도메인 모델](도메인모델.md)
 - [아키텍처 가이드](아키텍처가이드.md)
 - [용어 사전](용어사전.md)
@@ -115,6 +116,11 @@ flowchart TD
     M --> N["Mock Sender"]
     N --> O["SENT / FAILED"]
 ```
+
+## 멱등성과 중복 처리
+
+중복은 API 등록, Outbox 발행, Kafka 소비, 외부 발송 단계에서 각각 다른 형태로 발생할 수 있습니다.
+`requestId`, `notificationId`, `OutboxEvent.id`의 역할 구분과 Redis 락 적용 기준은 [멱등성과 중복 처리](docs/멱등성과중복처리.md)를 따릅니다.
 
 ## 실행 설정
 

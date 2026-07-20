@@ -11,6 +11,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
@@ -26,9 +27,16 @@ class NotificationOutboxPublishServiceTest {
 	private final FakeNotificationRepository notificationRepository = new FakeNotificationRepository();
 	private final FakeOutboxEventRepository outboxEventRepository = new FakeOutboxEventRepository();
 	private final SpyNotificationMessagePublisher notificationMessagePublisher = new SpyNotificationMessagePublisher();
-	private final NotificationOutboxPublishService outboxPublishService = new NotificationOutboxPublishService(
+	private final NotificationOutboxQueryService outboxQueryService = new NotificationOutboxQueryService(
 		outboxEventRepository,
-		notificationRepository,
+		notificationRepository
+	);
+	private final NotificationOutboxModifyService outboxModifyService = new NotificationOutboxModifyService(
+		outboxEventRepository
+	);
+	private final NotificationOutboxPublishService outboxPublishService = new NotificationOutboxPublishService(
+		outboxQueryService,
+		outboxModifyService,
 		notificationMessagePublisher
 	);
 
@@ -120,16 +128,27 @@ class NotificationOutboxPublishServiceTest {
 	private static class FakeOutboxEventRepository implements OutboxEventRepository {
 
 		private final List<OutboxEvent> events = new ArrayList<>();
+		private long idSequence = 1L;
 		private int saveCount;
 		private int lastFindLimit;
 
 		@Override
 		public OutboxEvent save(OutboxEvent outboxEvent) {
+			if (outboxEvent.getId() == null) {
+				ReflectionTestUtils.setField(outboxEvent, "id", idSequence++);
+			}
 			if (!events.contains(outboxEvent)) {
 				events.add(outboxEvent);
 			}
 			saveCount++;
 			return outboxEvent;
+		}
+
+		@Override
+		public Optional<OutboxEvent> findById(Long id) {
+			return events.stream()
+				.filter(outboxEvent -> outboxEvent.getId().equals(id))
+				.findFirst();
 		}
 
 		@Override

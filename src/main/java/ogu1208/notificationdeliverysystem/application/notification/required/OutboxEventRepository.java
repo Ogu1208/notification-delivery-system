@@ -14,6 +14,8 @@ public interface OutboxEventRepository extends Repository<OutboxEvent, Long> {
 
 	OutboxEvent save(OutboxEvent outboxEvent);
 
+	Optional<OutboxEvent> findById(Long id);
+
 	List<OutboxEvent> findByStatusOrderByIdAsc(OutboxEventStatus status, Pageable pageable);
 
 	Optional<OutboxEvent> findByAggregateTypeAndAggregateIdAndStatus(

@@ -117,6 +117,11 @@ class NotificationSenderTest {
 		}
 
 		@Override
+		public Optional<OutboxEvent> findById(Long id) {
+			return Optional.empty();
+		}
+
+		@Override
 		public List<OutboxEvent> findByStatusOrderByIdAsc(OutboxEventStatus status, Pageable pageable) {
 			return List.of();
 		}

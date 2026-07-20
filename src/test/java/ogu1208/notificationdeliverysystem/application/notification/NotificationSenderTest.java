@@ -2,8 +2,9 @@ package ogu1208.notificationdeliverysystem.application.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.List;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -122,6 +123,11 @@ class NotificationSenderTest {
 
 		@Override
 		public List<OutboxEvent> findPendingOrderByIdAsc(int limit) {
+			return List.of();
+		}
+
+		@Override
+		public List<OutboxEvent> findProcessingUpdatedBefore(LocalDateTime cutoff, int limit) {
 			return List.of();
 		}
 

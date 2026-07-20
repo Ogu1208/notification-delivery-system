@@ -3,6 +3,7 @@ package ogu1208.notificationdeliverysystem.application.notification;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -104,6 +105,28 @@ class NotificationOutboxPublishServiceTest {
 	}
 
 	@Test
+	@DisplayName("오래 처리 중인 Outbox 이벤트를 대기 상태로 되돌린 뒤 발행한다")
+	void recoversStaleProcessingEventsBeforePublishingPendingEvents() {
+		Notification notification = NotificationFixture.createNotification(1L);
+		notificationRepository.save(notification);
+		OutboxEvent outboxEvent = OutboxEvent.singleNotificationSend(notification.getId());
+		outboxEventRepository.save(outboxEvent);
+		outboxEvent.startPublishing();
+		ReflectionTestUtils.setField(outboxEvent, "updatedAt", LocalDateTime.now().minusMinutes(10));
+
+		int publishedCount = outboxPublishService.publishPending(1);
+
+		assertThat(publishedCount).isEqualTo(1);
+		assertThat(outboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
+		assertThat(outboxEventRepository.savedStatuses).containsExactly(
+			OutboxEventStatus.PENDING,
+			OutboxEventStatus.PENDING,
+			OutboxEventStatus.PROCESSING,
+			OutboxEventStatus.PUBLISHED
+		);
+	}
+
+	@Test
 	@DisplayName("알림 ID에 해당하는 대기 중 Outbox 이벤트를 즉시 발행한다")
 	void publishPendingByNotificationId() {
 		Notification notification = NotificationFixture.createNotification(1L);
@@ -185,6 +208,15 @@ class NotificationOutboxPublishServiceTest {
 			lastFindLimit = limit;
 			return events.stream()
 				.filter(outboxEvent -> outboxEvent.getStatus() == OutboxEventStatus.PENDING)
+				.limit(limit)
+				.toList();
+		}
+
+		@Override
+		public List<OutboxEvent> findProcessingUpdatedBefore(LocalDateTime cutoff, int limit) {
+			return events.stream()
+				.filter(outboxEvent -> outboxEvent.getStatus() == OutboxEventStatus.PROCESSING)
+				.filter(outboxEvent -> outboxEvent.getUpdatedAt().isBefore(cutoff))
 				.limit(limit)
 				.toList();
 		}

@@ -1,5 +1,6 @@
 package ogu1208.notificationdeliverysystem.application.notification.required;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,6 +15,8 @@ public interface OutboxEventRepository {
 	Optional<OutboxEvent> findById(Long id);
 
 	List<OutboxEvent> findPendingOrderByIdAsc(int limit);
+
+	List<OutboxEvent> findProcessingUpdatedBefore(LocalDateTime cutoff, int limit);
 
 	Optional<OutboxEvent> findByAggregateTypeAndAggregateIdAndStatus(
 		OutboxAggregateType aggregateType,

@@ -22,6 +22,7 @@ notification:
     publisher-enabled: false
     polling-interval-ms: 1000
     polling-batch-size: 100
+    processing-timeout-ms: 300000
   role:
     api-enabled: true
     worker-enabled: false

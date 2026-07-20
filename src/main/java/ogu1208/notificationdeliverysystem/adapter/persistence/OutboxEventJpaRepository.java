@@ -1,5 +1,6 @@
 package ogu1208.notificationdeliverysystem.adapter.persistence;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,6 +18,12 @@ interface OutboxEventJpaRepository extends Repository<OutboxEvent, Long> {
 	Optional<OutboxEvent> findById(Long id);
 
 	List<OutboxEvent> findByStatusOrderByIdAsc(OutboxEventStatus status, Pageable pageable);
+
+	List<OutboxEvent> findByStatusAndUpdatedAtBeforeOrderByIdAsc(
+		OutboxEventStatus status,
+		LocalDateTime cutoff,
+		Pageable pageable
+	);
 
 	Optional<OutboxEvent> findByAggregateTypeAndAggregateIdAndStatus(
 		OutboxAggregateType aggregateType,

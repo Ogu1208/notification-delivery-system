@@ -1,5 +1,8 @@
 package ogu1208.notificationdeliverysystem.application.notification;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +15,18 @@ import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
 public class NotificationOutboxModifyService {
 
 	private final OutboxEventRepository outboxEventRepository;
+
+	@Transactional
+	public int recoverStaleProcessingEvents(LocalDateTime cutoff, int limit) {
+		List<OutboxEvent> processingEvents = outboxEventRepository.findProcessingUpdatedBefore(cutoff, limit);
+
+		for (OutboxEvent outboxEvent : processingEvents) {
+			outboxEvent.markPending();
+			outboxEventRepository.save(outboxEvent);
+		}
+
+		return processingEvents.size();
+	}
 
 	@Transactional
 	public void markProcessing(Long outboxEventId) {

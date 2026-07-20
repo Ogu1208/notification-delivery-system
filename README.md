@@ -127,6 +127,7 @@ flowchart TD
 ```yaml
 notification:
   kafka:
+    publish-timeout-ms: 3000
     topics:
       single-notification-send: single-notification-send
   outbox:

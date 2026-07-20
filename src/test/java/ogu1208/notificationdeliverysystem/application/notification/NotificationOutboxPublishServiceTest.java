@@ -1,6 +1,7 @@
 package ogu1208.notificationdeliverysystem.application.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -55,7 +56,34 @@ class NotificationOutboxPublishServiceTest {
 		assertThat(notificationMessagePublisher.publishCount).isEqualTo(1);
 		assertThat(outboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
 		assertThat(outboxEvent.getPublishedAt()).isNotNull();
-		assertThat(outboxEventRepository.saveCount).isEqualTo(2);
+		assertThat(outboxEventRepository.saveCount).isEqualTo(3);
+		assertThat(outboxEventRepository.savedStatuses).containsExactly(
+			OutboxEventStatus.PENDING,
+			OutboxEventStatus.PROCESSING,
+			OutboxEventStatus.PUBLISHED
+		);
+	}
+
+	@Test
+	@DisplayName("Outbox 발행 실패 시 처리 중 이벤트를 다시 대기 상태로 되돌린다")
+	void returnsProcessingEventToPendingWhenPublishFails() {
+		Notification notification = NotificationFixture.createNotification(1L);
+		notificationRepository.save(notification);
+		OutboxEvent outboxEvent = OutboxEvent.singleNotificationSend(notification.getId());
+		outboxEventRepository.save(outboxEvent);
+		notificationMessagePublisher.fail = true;
+
+		assertThatThrownBy(() -> outboxPublishService.publishPendingByNotificationId(notification.getId()))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("Kafka 발행 실패");
+
+		assertThat(outboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
+		assertThat(outboxEvent.getPublishedAt()).isNull();
+		assertThat(outboxEventRepository.savedStatuses).containsExactly(
+			OutboxEventStatus.PENDING,
+			OutboxEventStatus.PROCESSING,
+			OutboxEventStatus.PENDING
+		);
 	}
 
 	@Test
@@ -127,6 +155,7 @@ class NotificationOutboxPublishServiceTest {
 	private static class FakeOutboxEventRepository implements OutboxEventRepository {
 
 		private final List<OutboxEvent> events = new ArrayList<>();
+		private final List<OutboxEventStatus> savedStatuses = new ArrayList<>();
 		private long idSequence = 1L;
 		private int saveCount;
 		private int lastFindLimit;
@@ -139,6 +168,7 @@ class NotificationOutboxPublishServiceTest {
 			if (!events.contains(outboxEvent)) {
 				events.add(outboxEvent);
 			}
+			savedStatuses.add(outboxEvent.getStatus());
 			saveCount++;
 			return outboxEvent;
 		}
@@ -177,9 +207,13 @@ class NotificationOutboxPublishServiceTest {
 
 		private Notification publishedNotification;
 		private int publishCount;
+		private boolean fail;
 
 		@Override
 		public void publish(Notification notification) {
+			if (fail) {
+				throw new IllegalStateException("Kafka 발행 실패");
+			}
 			publishedNotification = notification;
 			publishCount++;
 		}

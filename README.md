@@ -79,6 +79,7 @@ Kafka, JPA, Web, Mock Sender 같은 기술 구현은 adapter 계층에 둡니다
 2. Outbox 발행
    트랜잭션 commit 이후
     -> Outbox 즉시 발행 listener
+    -> OutboxEvent PROCESSING
     -> Kafka 발행
     -> OutboxEvent PUBLISHED
 
@@ -102,19 +103,20 @@ flowchart TD
     C --> D["202 Accepted"]
 
     C -. "commit 이후" .-> E["Outbox 즉시 발행"]
-    E --> F{"Kafka 발행 성공 여부"}
-    F -->|"Yes"| G["OutboxEvent PUBLISHED"]
-    F -->|"No"| H["PENDING 유지"]
+    E --> F["OutboxEvent PROCESSING"]
+    F --> G{"Kafka 발행 성공 여부"}
+    G -->|"Yes"| H["OutboxEvent PUBLISHED"]
+    G -->|"No"| I["OutboxEvent PENDING 복귀"]
 
-    H --> I["Outbox Poller"]
-    I --> J["PENDING 이벤트 제한 조회"]
-    J --> E
+    I --> J["Outbox Poller"]
+    J --> K["PENDING 이벤트 제한 조회"]
+    K --> E
 
-    G --> K["Kafka topic"]
-    K --> L["Kafka Consumer"]
-    L --> M["NotificationSender"]
-    M --> N["Mock Sender"]
-    N --> O["SENT / FAILED"]
+    H --> L["Kafka topic"]
+    L --> M["Kafka Consumer"]
+    M --> N["NotificationSender"]
+    N --> O["Mock Sender"]
+    O --> P["SENT / FAILED"]
 ```
 
 ## 멱등성과 중복 처리

@@ -1,6 +1,7 @@
 package ogu1208.notificationdeliverysystem.domain.outbox;
 
 import static java.util.Objects.requireNonNull;
+import static org.springframework.util.Assert.state;
 
 import java.time.LocalDateTime;
 
@@ -51,8 +52,22 @@ public class OutboxEvent extends BaseEntity {
 		);
 	}
 
+	public void startPublishing() {
+		state(status == OutboxEventStatus.PENDING, "대기 중인 Outbox 이벤트만 발행을 시작할 수 있습니다");
+
+		status = OutboxEventStatus.PROCESSING;
+	}
+
 	public void markPublished() {
+		state(status == OutboxEventStatus.PROCESSING, "처리 중인 Outbox 이벤트만 발행 완료할 수 있습니다");
+
 		status = OutboxEventStatus.PUBLISHED;
 		publishedAt = LocalDateTime.now();
+	}
+
+	public void markPending() {
+		state(status == OutboxEventStatus.PROCESSING, "처리 중인 Outbox 이벤트만 대기 상태로 되돌릴 수 있습니다");
+
+		status = OutboxEventStatus.PENDING;
 	}
 }

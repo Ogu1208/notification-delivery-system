@@ -14,11 +14,31 @@ public class NotificationOutboxModifyService {
 	private final OutboxEventRepository outboxEventRepository;
 
 	@Transactional
+	public void markProcessing(Long outboxEventId) {
+		OutboxEvent outboxEvent = getOutboxEvent(outboxEventId);
+
+		outboxEvent.startPublishing();
+		outboxEventRepository.save(outboxEvent);
+	}
+
+	@Transactional
 	public void markPublished(Long outboxEventId) {
-		OutboxEvent outboxEvent = outboxEventRepository.findById(outboxEventId)
-			.orElseThrow(() -> new IllegalStateException("Outbox 이벤트를 찾을 수 없습니다"));
+		OutboxEvent outboxEvent = getOutboxEvent(outboxEventId);
 
 		outboxEvent.markPublished();
 		outboxEventRepository.save(outboxEvent);
+	}
+
+	@Transactional
+	public void markPending(Long outboxEventId) {
+		OutboxEvent outboxEvent = getOutboxEvent(outboxEventId);
+
+		outboxEvent.markPending();
+		outboxEventRepository.save(outboxEvent);
+	}
+
+	private OutboxEvent getOutboxEvent(Long outboxEventId) {
+		return outboxEventRepository.findById(outboxEventId)
+			.orElseThrow(() -> new IllegalStateException("Outbox 이벤트를 찾을 수 없습니다"));
 	}
 }

@@ -56,14 +56,21 @@ public class NotificationOutboxPublishService {
 	}
 
 	/*
-	 * Kafka 발행 성공을 확인한 뒤 Outbox를 PUBLISHED로 변경
+	 * Kafka 발행 시도 전 Outbox를 PROCESSING으로 바꾸고, 성공을 확인한 뒤 PUBLISHED로 변경
 	 * Kafka 발행은 DB 트랜잭션 밖 효과라 중복 발행 가능성이 있고, Consumer 멱등 처리로 보완한다.
 	 */
 	private void publish(OutboxEvent outboxEvent) {
-		Notification notification = outboxQueryService.findNotificationById(outboxEvent.getAggregateId());
+		outboxModifyService.markProcessing(outboxEvent.getId());
 
-		notificationMessagePublisher.publish(notification);
+		try {
+			Notification notification = outboxQueryService.findNotificationById(outboxEvent.getAggregateId());
 
-		outboxModifyService.markPublished(outboxEvent.getId());
+			notificationMessagePublisher.publish(notification);
+
+			outboxModifyService.markPublished(outboxEvent.getId());
+		} catch (RuntimeException e) {
+			outboxModifyService.markPending(outboxEvent.getId());
+			throw e;
+		}
 	}
 }

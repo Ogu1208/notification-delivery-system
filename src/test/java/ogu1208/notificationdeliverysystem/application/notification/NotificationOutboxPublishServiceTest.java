@@ -10,7 +10,6 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
@@ -152,11 +151,11 @@ class NotificationOutboxPublishServiceTest {
 		}
 
 		@Override
-		public List<OutboxEvent> findByStatusOrderByIdAsc(OutboxEventStatus status, Pageable pageable) {
-			lastFindLimit = pageable.getPageSize();
+		public List<OutboxEvent> findPendingOrderByIdAsc(int limit) {
+			lastFindLimit = limit;
 			return events.stream()
-				.filter(outboxEvent -> outboxEvent.getStatus() == status)
-				.limit(pageable.getPageSize())
+				.filter(outboxEvent -> outboxEvent.getStatus() == OutboxEventStatus.PENDING)
+				.limit(limit)
 				.toList();
 		}
 

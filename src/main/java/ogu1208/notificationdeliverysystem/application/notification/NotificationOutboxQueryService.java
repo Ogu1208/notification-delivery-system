@@ -3,7 +3,6 @@ package ogu1208.notificationdeliverysystem.application.notification;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,10 +23,7 @@ public class NotificationOutboxQueryService {
 	private final NotificationRepository notificationRepository;
 
 	public List<OutboxEvent> findPendingEvents(int limit) {
-		return outboxEventRepository.findByStatusOrderByIdAsc(
-			OutboxEventStatus.PENDING,
-			PageRequest.of(0, limit)
-		);
+		return outboxEventRepository.findPendingOrderByIdAsc(limit);
 	}
 
 	public Optional<OutboxEvent> findPendingEventByNotificationId(Long notificationId) {

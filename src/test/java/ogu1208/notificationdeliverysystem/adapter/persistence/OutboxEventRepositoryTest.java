@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
@@ -18,7 +17,7 @@ import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
 import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEventStatus;
 
 @DataJpaTest
-@Import(JpaAuditingConfig.class)
+@Import({JpaAuditingConfig.class, OutboxEventPersistenceAdapter.class})
 class OutboxEventRepositoryTest {
 
 	@Autowired
@@ -34,20 +33,13 @@ class OutboxEventRepositoryTest {
 
 		assertThat(outboxEvent.getId()).isNotNull();
 		assertThat(outboxEvent.getAggregateType()).isEqualTo(OutboxAggregateType.NOTIFICATION);
-		assertThat(outboxEventRepository.findByStatusOrderByIdAsc(
-			OutboxEventStatus.PENDING,
-			PageRequest.of(0, 100)
-		)).contains(outboxEvent);
+		assertThat(outboxEventRepository.findPendingOrderByIdAsc(100)).contains(outboxEvent);
 		assertThat(outboxEventRepository.findByAggregateTypeAndAggregateIdAndStatus(
 			OutboxAggregateType.NOTIFICATION,
 			1L,
 			OutboxEventStatus.PENDING
 		))
 			.contains(outboxEvent);
-		assertThat(outboxEventRepository.findByStatusOrderByIdAsc(
-			OutboxEventStatus.PUBLISHED,
-			PageRequest.of(0, 100)
-		)).isEmpty();
 	}
 
 	@Test

@@ -9,7 +9,6 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.domain.Pageable;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
@@ -122,7 +121,7 @@ class NotificationSenderTest {
 		}
 
 		@Override
-		public List<OutboxEvent> findByStatusOrderByIdAsc(OutboxEventStatus status, Pageable pageable) {
+		public List<OutboxEvent> findPendingOrderByIdAsc(int limit) {
 			return List.of();
 		}
 

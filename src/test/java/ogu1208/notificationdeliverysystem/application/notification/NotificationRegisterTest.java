@@ -11,7 +11,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
@@ -162,7 +161,7 @@ class NotificationRegisterTest {
 		}
 
 		@Override
-		public List<OutboxEvent> findByStatusOrderByIdAsc(OutboxEventStatus status, Pageable pageable) {
+		public List<OutboxEvent> findPendingOrderByIdAsc(int limit) {
 			return List.of();
 		}
 

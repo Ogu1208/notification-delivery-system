@@ -19,7 +19,7 @@ import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegist
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
 
 @DataJpaTest
-@Import(JpaAuditingConfig.class)
+@Import({JpaAuditingConfig.class, NotificationPersistenceAdapter.class})
 class NotificationRepositoryTest {
 
 	@Autowired

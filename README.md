@@ -88,6 +88,11 @@ Kafka, JPA, Web, Mock Sender 같은 기술 구현은 adapter 계층에 둡니다
     -> PENDING 이벤트 제한 조회
     -> Kafka 재발행
 
+   오래 처리 중인 이벤트
+    -> Outbox recovery publisher
+    -> PROCESSING timeout 이벤트 제한 조회
+    -> PENDING 복구
+
 3. Kafka 소비와 발송
    Kafka Consumer
     -> NotificationSender
@@ -111,6 +116,9 @@ flowchart TD
     I --> J["Outbox Poller"]
     J --> K["PENDING 이벤트 제한 조회"]
     K --> E
+
+    Q["Outbox Recovery Poller"] --> R["오래된 PROCESSING 조회"]
+    R --> I
 
     H --> L["Kafka topic"]
     L --> M["Kafka Consumer"]
@@ -136,6 +144,8 @@ notification:
     publisher-enabled: false
     polling-interval-ms: 1000
     polling-batch-size: 100
+    recovery-interval-ms: 30000
+    recovery-batch-size: 500
     processing-timeout-ms: 300000
   role:
     api-enabled: true
@@ -143,7 +153,7 @@ notification:
 ```
 
 - `notification.role.worker-enabled=true`: Kafka Consumer 활성화
-- `notification.outbox.publisher-enabled=true`: Outbox 즉시 발행 listener와 polling publisher 활성화
+- `notification.outbox.publisher-enabled=true`: Outbox 즉시 발행 listener, 발행 polling, 복구 polling 활성화
 
 ## API 예시
 

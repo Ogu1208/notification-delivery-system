@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -105,8 +106,30 @@ class NotificationOutboxPublishServiceTest {
 	}
 
 	@Test
-	@DisplayName("오래 처리 중인 Outbox 이벤트를 대기 상태로 되돌린 뒤 발행한다")
-	void recoversStaleProcessingEventsBeforePublishingPendingEvents() {
+	@DisplayName("대기 중 이벤트 하나의 발행이 실패해도 다음 이벤트 발행은 계속한다")
+	void continuesPublishingNextPendingEventWhenOnePublishFails() {
+		Notification firstNotification = NotificationFixture.createNotification(1L);
+		Notification secondNotification = NotificationFixture.createNotification(2L);
+		notificationRepository.save(firstNotification);
+		notificationRepository.save(secondNotification);
+		OutboxEvent firstOutboxEvent = OutboxEvent.singleNotificationSend(firstNotification.getId());
+		OutboxEvent secondOutboxEvent = OutboxEvent.singleNotificationSend(secondNotification.getId());
+		outboxEventRepository.save(firstOutboxEvent);
+		outboxEventRepository.save(secondOutboxEvent);
+		notificationMessagePublisher.failedNotificationIds = Set.of(firstNotification.getId());
+
+		int publishedCount = outboxPublishService.publishPending(2);
+
+		assertThat(publishedCount).isEqualTo(1);
+		assertThat(firstOutboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
+		assertThat(secondOutboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
+		assertThat(notificationMessagePublisher.publishAttemptCount).isEqualTo(2);
+		assertThat(notificationMessagePublisher.publishCount).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("발행 poller는 처리 중 이벤트를 직접 복구하지 않는다")
+	void publishPendingDoesNotRecoverProcessingEvents() {
 		Notification notification = NotificationFixture.createNotification(1L);
 		notificationRepository.save(notification);
 		OutboxEvent outboxEvent = OutboxEvent.singleNotificationSend(notification.getId());
@@ -116,13 +139,11 @@ class NotificationOutboxPublishServiceTest {
 
 		int publishedCount = outboxPublishService.publishPending(1);
 
-		assertThat(publishedCount).isEqualTo(1);
-		assertThat(outboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
+		assertThat(publishedCount).isZero();
+		assertThat(outboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PROCESSING);
+		assertThat(notificationMessagePublisher.publishCount).isZero();
 		assertThat(outboxEventRepository.savedStatuses).containsExactly(
-			OutboxEventStatus.PENDING,
-			OutboxEventStatus.PENDING,
-			OutboxEventStatus.PROCESSING,
-			OutboxEventStatus.PUBLISHED
+			OutboxEventStatus.PENDING
 		);
 	}
 
@@ -238,12 +259,15 @@ class NotificationOutboxPublishServiceTest {
 	private static class SpyNotificationMessagePublisher implements NotificationMessagePublisher {
 
 		private Notification publishedNotification;
+		private int publishAttemptCount;
 		private int publishCount;
 		private boolean fail;
+		private Set<Long> failedNotificationIds = Set.of();
 
 		@Override
 		public void publish(Notification notification) {
-			if (fail) {
+			publishAttemptCount++;
+			if (fail || failedNotificationIds.contains(notification.getId())) {
 				throw new IllegalStateException("Kafka 발행 실패");
 			}
 			publishedNotification = notification;

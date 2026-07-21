@@ -1,30 +1,25 @@
 package ogu1208.notificationdeliverysystem.application.notification;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotificationOutboxPublishService {
 
 	private static final int DEFAULT_BATCH_SIZE = 100;
-	private static final long DEFAULT_PROCESSING_TIMEOUT_MS = 300_000L;
 
 	private final NotificationOutboxQueryService outboxQueryService;
 	private final NotificationOutboxModifyService outboxModifyService;
 	private final NotificationMessagePublisher notificationMessagePublisher;
-
-	@Value("${notification.outbox.processing-timeout-ms:" + DEFAULT_PROCESSING_TIMEOUT_MS + "}")
-	private long processingTimeoutMs = DEFAULT_PROCESSING_TIMEOUT_MS;
 
 	public int publishPending() {
 		return publishPending(DEFAULT_BATCH_SIZE);
@@ -33,27 +28,31 @@ public class NotificationOutboxPublishService {
 	/**
 	 * polling으로 남아 있는 PENDING Outbox 이벤트를 제한 개수만큼 발행
 	 *
-	 * <p>즉시 발행이 실패했거나 애플리케이션이 중간에 종료된 이벤트를 재처리하는 경로다.</p>
+	 * <p>즉시 발행이 실패했거나 애플리케이션이 중간에 종료된 이벤트를 재처리하는 경로다.
+	 * 특정 이벤트 발행이 실패해도 나머지 PENDING 이벤트 발행은 계속한다.</p>
 	 */
 	public int publishPending(int limit) {
-		recoverStaleProcessingEvents(limit);
-
 		List<OutboxEvent> pendingEvents = outboxQueryService.findPendingEvents(limit);
 
 		int publishedCount = 0;
 
 		for (OutboxEvent outboxEvent : pendingEvents) {
-			publish(outboxEvent);
-			publishedCount++;
+			if (publishForPolling(outboxEvent)) {
+				publishedCount++;
+			}
 		}
 
 		return publishedCount;
 	}
 
-	private void recoverStaleProcessingEvents(int limit) {
-		LocalDateTime cutoff = LocalDateTime.now().minus(Duration.ofMillis(processingTimeoutMs));
-
-		outboxModifyService.recoverStaleProcessingEvents(cutoff, limit);
+	private boolean publishForPolling(OutboxEvent outboxEvent) {
+		try {
+			publish(outboxEvent);
+			return true;
+		} catch (RuntimeException e) {
+			log.warn("Outbox polling 발행 실패. 다음 이벤트 발행은 계속 진행합니다. outboxEventId={}", outboxEvent.getId(), e);
+			return false;
+		}
 	}
 
 	/**

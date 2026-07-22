@@ -157,6 +157,7 @@ notification:
     publisher-enabled: false
     polling-interval-ms: 1000
     polling-batch-size: 100
+    pending-min-age-ms: 3000
     recovery-interval-ms: 30000
     recovery-batch-size: 500
     processing-timeout-ms: 300000

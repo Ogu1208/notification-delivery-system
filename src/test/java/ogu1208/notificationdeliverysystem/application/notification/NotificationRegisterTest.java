@@ -129,6 +129,11 @@ class NotificationRegisterTest {
 		public Optional<Notification> findById(Long id) {
 			return Optional.empty();
 		}
+
+		@Override
+		public List<Notification> findRetryWaitDue(LocalDateTime now, int limit) {
+			return List.of();
+		}
 	}
 
 	private static class SpyOutboxEventRepository implements OutboxEventRepository {

@@ -361,27 +361,27 @@ partition key 선택에 따라 hot partition이 생길 수 있고, DB 상태 upd
    - 완료: `POST /mock/send`
    - 완료: connect timeout, read timeout 설정
    - 완료: 요청 DTO 분리
-   - 진행 예정: 응답 DTO 기반 실패 분류
+   - 완료: 응답 DTO 기반 실패 분류
 3. 실패 분류 모델 추가
-   - 성공, 영구 실패, 재시도 가능 실패 구분
-   - `429`는 재시도 가능 실패로 분리
+   - 완료: 성공, 영구 실패, 재시도 가능 실패 구분
+   - 완료: `429`는 재시도 가능 실패로 분리
 4. 발송 유스케이스 상태 전이 변경
-   - `PROCESSING`
-   - `SENT`
-   - `FAILED`
-   - `RETRY_WAIT`
-   - `DEAD`
+   - 완료: `PROCESSING`
+   - 완료: `SENT`
+   - 완료: `FAILED`
+   - 완료: `RETRY_WAIT`
+   - 완료: `DEAD`
 5. retry poller 추가
-   - `RETRY_WAIT`와 `nextRetryAt` 기준 조회
-   - Kafka WORK 메시지 재발행
+   - 완료: `RETRY_WAIT`와 `nextRetryAt` 기준 조회
+   - 완료: Kafka WORK 메시지 재발행
 6. 중복 발송 방지 보강
-   - 최종 상태 skip 기준에 `DEAD` 포함
-   - Redis lock TTL이 HTTP timeout보다 길도록 설정
+   - 완료: 최종 상태 skip 기준에 `DEAD` 포함
+   - 완료: Redis lock TTL이 HTTP timeout보다 길도록 설정
 7. 문서와 테스트 정리
-   - 도메인 상태 전이 테스트
-   - 실패 분류 테스트
-   - retry 초과 시 `DEAD` 테스트
-   - Mock API adapter timeout 테스트
+   - 완료: 도메인 상태 전이 테스트
+   - 완료: 실패 분류 테스트
+   - 완료: retry 초과 시 `DEAD` 테스트
+   - 완료: Mock API adapter timeout 테스트
 8. 성능 측정 문서화
    - k6 또는 nGrinder 측정 시나리오 정리
    - 병목 후보와 개선 방향 정리

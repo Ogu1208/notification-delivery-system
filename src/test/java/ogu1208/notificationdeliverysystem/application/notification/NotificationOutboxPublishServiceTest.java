@@ -194,6 +194,11 @@ class NotificationOutboxPublishServiceTest {
 				.filter(notification -> notification.getRequestId().value().equals(requestId))
 				.findFirst();
 		}
+
+		@Override
+		public List<Notification> findRetryWaitDue(LocalDateTime now, int limit) {
+			return List.of();
+		}
 	}
 
 	private static class FakeOutboxEventRepository implements OutboxEventRepository {

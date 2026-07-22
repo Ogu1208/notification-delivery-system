@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLock;
 import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLockManager;
+import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSendException;
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
@@ -69,15 +70,66 @@ class NotificationSenderTest {
 	void sendMarksFailedWhenExternalSenderFails() {
 		Notification notification = NotificationFixture.createNotification(1L);
 		repository.save(notification);
-		externalSender.failure = new RuntimeException("mock failure");
+		externalSender.failure = ExternalNotificationSendException.nonRetryable(
+			"invalid receiver",
+			"MOCK_BAD_REQUEST",
+			400,
+			null
+		);
 
 		notificationSender.send(1L);
 
 		assertThat(notification.getStatus()).isEqualTo(NotificationStatus.FAILED);
 		assertThat(notification.getAttemptCount()).isEqualTo(1);
-		assertThat(notification.getFailureReason()).isEqualTo("mock failure");
+		assertThat(notification.getFailureReason()).isEqualTo("invalid receiver");
 		assertThat(notification.getFailedAt()).isNotNull();
 		assertThat(dispatchLockManager.closedLockCount).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("외부 발송이 일시 실패하면 재시도 대기 상태로 변경한다")
+	void sendMarksRetryWaitWhenExternalSenderTemporarilyFails() {
+		Notification notification = NotificationFixture.createNotification(1L);
+		repository.save(notification);
+		externalSender.failure = ExternalNotificationSendException.retryable(
+			"mock api timeout",
+			"MOCK_TIMEOUT",
+			null,
+			null
+		);
+
+		notificationSender.send(1L);
+
+		assertThat(notification.getStatus()).isEqualTo(NotificationStatus.RETRY_WAIT);
+		assertThat(notification.getRetryCount()).isEqualTo(1);
+		assertThat(notification.getLastError()).isEqualTo("mock api timeout");
+		assertThat(notification.getLastErrorCode()).isEqualTo("MOCK_TIMEOUT");
+		assertThat(notification.getNextRetryAt()).isNotNull();
+	}
+
+	@Test
+	@DisplayName("재시도 한도를 초과하면 데드 상태로 변경한다")
+	void sendMarksDeadWhenRetryLimitExceeded() {
+		Notification notification = NotificationFixture.createNotification(1L);
+		notification.startProcessing();
+		notification.markRetryWait("mock api unavailable", "MOCK_UNAVAILABLE", 503, LocalDateTime.now().minusSeconds(1));
+		notification.startProcessing();
+		notification.markRetryWait("mock api unavailable", "MOCK_UNAVAILABLE", 503, LocalDateTime.now().minusSeconds(1));
+		notification.startProcessing();
+		notification.markRetryWait("mock api unavailable", "MOCK_UNAVAILABLE", 503, LocalDateTime.now().minusSeconds(1));
+		repository.save(notification);
+		externalSender.failure = ExternalNotificationSendException.retryable(
+			"mock api unavailable",
+			"MOCK_UNAVAILABLE",
+			503,
+			null
+		);
+
+		notificationSender.send(1L);
+
+		assertThat(notification.getStatus()).isEqualTo(NotificationStatus.DEAD);
+		assertThat(notification.getRetryCount()).isEqualTo(3);
+		assertThat(notification.getFailureReason()).isEqualTo("재시도 한도 초과: mock api unavailable");
 	}
 
 	@Test
@@ -116,6 +168,11 @@ class NotificationSenderTest {
 				.stream()
 				.filter(notification -> notification.getRequestId().value().equals(requestId))
 				.findFirst();
+		}
+
+		@Override
+		public List<Notification> findRetryWaitDue(LocalDateTime now, int limit) {
+			return List.of();
 		}
 	}
 

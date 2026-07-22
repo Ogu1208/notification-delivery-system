@@ -358,9 +358,10 @@ partition key 선택에 따라 hot partition이 생길 수 있고, DB 상태 upd
    - 완료: `RETRY_WAIT`, `DEAD` 추가
    - 완료: `retryCount`, `lastError`, `lastErrorCode`, `lastExternalStatusCode`, `lastFailedAt`, `nextRetryAt` 추가
 2. Mock Send API HTTP adapter 추가
-   - `POST /mock/send`
-   - connect timeout, read timeout 설정
-   - 요청/응답 DTO 분리
+   - 완료: `POST /mock/send`
+   - 완료: connect timeout, read timeout 설정
+   - 완료: 요청 DTO 분리
+   - 진행 예정: 응답 DTO 기반 실패 분류
 3. 실패 분류 모델 추가
    - 성공, 영구 실패, 재시도 가능 실패 구분
    - `429`는 재시도 가능 실패로 분리

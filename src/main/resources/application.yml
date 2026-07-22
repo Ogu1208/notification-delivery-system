@@ -28,6 +28,11 @@ notification:
   dispatch-lock:
     type: dummy
     ttl-ms: 30000
+  mock-send:
+    type: log
+    base-url: http://localhost:8081
+    connect-timeout-ms: 1000
+    read-timeout-ms: 3000
   role:
     api-enabled: true
     worker-enabled: false

@@ -158,6 +158,7 @@ notification:
     type: dummy
     ttl-ms: 30000
   mock-send:
+    type: log
     base-url: http://localhost:8081
     connect-timeout-ms: 1000
     read-timeout-ms: 3000
@@ -172,6 +173,7 @@ notification:
 - `notification.role.worker-enabled=true`: Kafka Consumer 활성화
 - `notification.outbox.publisher-enabled=true`: Outbox 즉시 발행 listener, 발행 polling, 복구 polling 활성화
 - `notification.dispatch-lock.type=redis`: Redis 기반 발송 락 활성화
+- `notification.mock-send.type=http`: 로그 Mock Sender 대신 실제 Mock Send API HTTP adapter 활성화
 - `notification.mock-send.base-url`: Week2 Mock Send API 주소. 기본 후보는 `http://localhost:8081`
 
 ## API 예시

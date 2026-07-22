@@ -12,6 +12,9 @@ import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
@@ -19,6 +22,7 @@ import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
 
+@ExtendWith(OutputCaptureExtension.class)
 class NotificationRetryPublishServiceTest {
 
 	private final FakeNotificationRepository notificationRepository = new FakeNotificationRepository();
@@ -30,7 +34,7 @@ class NotificationRetryPublishServiceTest {
 
 	@Test
 	@DisplayName("재시도 시간이 지난 알림을 다시 발행한다")
-	void publishDueRetryWaitNotifications() {
+	void publishDueRetryWaitNotifications(CapturedOutput output) {
 		Notification notification = retryWaitNotification(1L, LocalDateTime.now().minusSeconds(1));
 		notificationRepository.save(notification);
 
@@ -39,6 +43,12 @@ class NotificationRetryPublishServiceTest {
 		assertThat(publishedCount).isEqualTo(1);
 		assertThat(notificationRepository.lastFindLimit).isEqualTo(10);
 		assertThat(notificationMessagePublisher.publishedNotifications).containsExactly(notification);
+		assertThat(output).contains(
+			"재시도 Kafka 발행 성공",
+			"notificationId=1",
+			"requestId=" + notification.getRequestId().value(),
+			"retryCount=" + notification.getRetryCount()
+		);
 	}
 
 	@Test

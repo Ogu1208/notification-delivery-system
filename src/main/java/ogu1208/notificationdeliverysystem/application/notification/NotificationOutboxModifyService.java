@@ -29,6 +29,11 @@ public class NotificationOutboxModifyService {
 	}
 
 	@Transactional
+	public boolean markProcessingIfPending(Long outboxEventId) {
+		return outboxEventRepository.markProcessingIfPending(outboxEventId);
+	}
+
+	@Transactional
 	public void markProcessing(Long outboxEventId) {
 		OutboxEvent outboxEvent = getOutboxEvent(outboxEventId);
 

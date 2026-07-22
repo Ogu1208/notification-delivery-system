@@ -13,6 +13,9 @@ import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
@@ -24,6 +27,7 @@ import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
 import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEventStatus;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
 
+@ExtendWith(OutputCaptureExtension.class)
 class NotificationOutboxPublishServiceTest {
 
 	private final FakeNotificationRepository notificationRepository = new FakeNotificationRepository();
@@ -39,16 +43,18 @@ class NotificationOutboxPublishServiceTest {
 	private final NotificationOutboxPublishService outboxPublishService = new NotificationOutboxPublishService(
 		outboxQueryService,
 		outboxModifyService,
-		notificationMessagePublisher
+		notificationMessagePublisher,
+		3000
 	);
 
 	@Test
 	@DisplayName("대기 중인 Outbox 이벤트의 알림 메시지를 발행하고 발행 완료로 변경한다")
-	void publishPendingEventsAndMarksPublished() {
+	void publishPendingEventsAndMarksPublished(CapturedOutput output) {
 		Notification notification = NotificationFixture.createNotification(1L);
 		notificationRepository.save(notification);
 		OutboxEvent outboxEvent = OutboxEvent.singleNotificationSend(notification.getId());
 		outboxEventRepository.save(outboxEvent);
+		ReflectionTestUtils.setField(outboxEvent, "createdAt", LocalDateTime.now().minusSeconds(5));
 
 		int publishedCount = outboxPublishService.publishPending();
 
@@ -63,6 +69,13 @@ class NotificationOutboxPublishServiceTest {
 			OutboxEventStatus.PENDING,
 			OutboxEventStatus.PROCESSING,
 			OutboxEventStatus.PUBLISHED
+		);
+		assertThat(output).contains(
+			"Outbox Kafka 발행 성공",
+			"source=polling",
+			"outboxEventId=" + outboxEvent.getId(),
+			"notificationId=1",
+			"requestId=" + notification.getRequestId().value()
 		);
 	}
 
@@ -95,8 +108,10 @@ class NotificationOutboxPublishServiceTest {
 		Notification secondNotification = NotificationFixture.createNotification(2L);
 		notificationRepository.save(firstNotification);
 		notificationRepository.save(secondNotification);
-		outboxEventRepository.save(OutboxEvent.singleNotificationSend(firstNotification.getId()));
-		outboxEventRepository.save(OutboxEvent.singleNotificationSend(secondNotification.getId()));
+		OutboxEvent firstOutboxEvent = outboxEventRepository.save(OutboxEvent.singleNotificationSend(firstNotification.getId()));
+		OutboxEvent secondOutboxEvent = outboxEventRepository.save(OutboxEvent.singleNotificationSend(secondNotification.getId()));
+		ReflectionTestUtils.setField(firstOutboxEvent, "createdAt", LocalDateTime.now().minusSeconds(5));
+		ReflectionTestUtils.setField(secondOutboxEvent, "createdAt", LocalDateTime.now().minusSeconds(5));
 
 		int publishedCount = outboxPublishService.publishPending(1);
 
@@ -116,6 +131,8 @@ class NotificationOutboxPublishServiceTest {
 		OutboxEvent secondOutboxEvent = OutboxEvent.singleNotificationSend(secondNotification.getId());
 		outboxEventRepository.save(firstOutboxEvent);
 		outboxEventRepository.save(secondOutboxEvent);
+		ReflectionTestUtils.setField(firstOutboxEvent, "createdAt", LocalDateTime.now().minusSeconds(5));
+		ReflectionTestUtils.setField(secondOutboxEvent, "createdAt", LocalDateTime.now().minusSeconds(5));
 		notificationMessagePublisher.failedNotificationIds = Set.of(firstNotification.getId());
 
 		int publishedCount = outboxPublishService.publishPending(2);
@@ -148,8 +165,24 @@ class NotificationOutboxPublishServiceTest {
 	}
 
 	@Test
+	@DisplayName("발행 poller는 방금 생성된 Outbox 이벤트를 즉시 발행하지 않는다")
+	void publishPendingSkipsFreshPendingEvents() {
+		Notification notification = NotificationFixture.createNotification(1L);
+		notificationRepository.save(notification);
+		OutboxEvent outboxEvent = OutboxEvent.singleNotificationSend(notification.getId());
+		outboxEventRepository.save(outboxEvent);
+		ReflectionTestUtils.setField(outboxEvent, "createdAt", LocalDateTime.now());
+
+		int publishedCount = outboxPublishService.publishPending(1);
+
+		assertThat(publishedCount).isZero();
+		assertThat(notificationMessagePublisher.publishCount).isZero();
+		assertThat(outboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PENDING);
+	}
+
+	@Test
 	@DisplayName("알림 ID에 해당하는 대기 중 Outbox 이벤트를 즉시 발행한다")
-	void publishPendingByNotificationId() {
+	void publishPendingByNotificationId(CapturedOutput output) {
 		Notification notification = NotificationFixture.createNotification(1L);
 		notificationRepository.save(notification);
 		OutboxEvent outboxEvent = OutboxEvent.singleNotificationSend(notification.getId());
@@ -161,6 +194,13 @@ class NotificationOutboxPublishServiceTest {
 		assertThat(notificationMessagePublisher.publishedNotification).isSameAs(notification);
 		assertThat(notificationMessagePublisher.publishCount).isEqualTo(1);
 		assertThat(outboxEvent.getStatus()).isEqualTo(OutboxEventStatus.PUBLISHED);
+		assertThat(output).contains(
+			"Outbox Kafka 발행 성공",
+			"source=immediate",
+			"outboxEventId=" + outboxEvent.getId(),
+			"notificationId=1",
+			"requestId=" + notification.getRequestId().value()
+		);
 	}
 
 	@Test
@@ -230,10 +270,31 @@ class NotificationOutboxPublishServiceTest {
 		}
 
 		@Override
+		public boolean markProcessingIfPending(Long id) {
+			OutboxEvent outboxEvent = findById(id).orElseThrow();
+			if (outboxEvent.getStatus() != OutboxEventStatus.PENDING) {
+				return false;
+			}
+			outboxEvent.startPublishing();
+			save(outboxEvent);
+			return true;
+		}
+
+		@Override
 		public List<OutboxEvent> findPendingOrderByIdAsc(int limit) {
 			lastFindLimit = limit;
 			return events.stream()
 				.filter(outboxEvent -> outboxEvent.getStatus() == OutboxEventStatus.PENDING)
+				.limit(limit)
+				.toList();
+		}
+
+		@Override
+		public List<OutboxEvent> findPendingCreatedBeforeOrderByIdAsc(LocalDateTime cutoff, int limit) {
+			lastFindLimit = limit;
+			return events.stream()
+				.filter(outboxEvent -> outboxEvent.getStatus() == OutboxEventStatus.PENDING)
+				.filter(outboxEvent -> outboxEvent.getCreatedAt().isBefore(cutoff))
 				.limit(limit)
 				.toList();
 		}

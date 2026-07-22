@@ -41,6 +41,12 @@ public class NotificationRetryPublishService {
 	private boolean publish(Notification notification) {
 		try {
 			notificationMessagePublisher.publish(notification);
+			log.info(
+				"재시도 Kafka 발행 성공. notificationId={}, requestId={}, retryCount={}",
+				notification.getId(),
+				notification.getRequestId().value(),
+				notification.getRetryCount()
+			);
 			return true;
 		} catch (RuntimeException e) {
 			log.warn(

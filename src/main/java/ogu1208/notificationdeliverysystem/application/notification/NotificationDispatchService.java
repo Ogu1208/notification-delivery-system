@@ -60,6 +60,14 @@ public class NotificationDispatchService implements NotificationSender {
 		}
 
 		notification.markSent();
+		log.info(
+			"알림 발송 성공. notificationId={}, requestId={}, channel={}, receiver={}, attemptCount={}",
+			notification.getId(),
+			notification.getRequestId().value(),
+			notification.getChannel(),
+			notification.getReceiver(),
+			notification.getAttemptCount()
+		);
 	}
 
 	private void handleExternalSendFailure(Notification notification, ExternalNotificationSendException e) {

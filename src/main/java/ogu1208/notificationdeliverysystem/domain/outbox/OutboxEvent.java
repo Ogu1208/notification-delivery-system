@@ -19,6 +19,7 @@ import ogu1208.notificationdeliverysystem.domain.common.BaseEntity;
 @Entity
 @Table(indexes = {
 	@Index(name = "idx_outbox_event_status_id", columnList = "status, id"),
+	@Index(name = "idx_outbox_event_status_created_at_id", columnList = "status, createdAt, id"),
 	@Index(name = "idx_outbox_event_status_updated_at", columnList = "status, updatedAt"),
 	@Index(name = "idx_outbox_event_aggregate_status", columnList = "aggregateType, aggregateId, status")
 })

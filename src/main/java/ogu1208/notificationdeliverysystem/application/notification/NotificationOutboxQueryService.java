@@ -1,5 +1,6 @@
 package ogu1208.notificationdeliverysystem.application.notification;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,6 +25,10 @@ public class NotificationOutboxQueryService {
 
 	public List<OutboxEvent> findPendingEvents(int limit) {
 		return outboxEventRepository.findPendingOrderByIdAsc(limit);
+	}
+
+	public List<OutboxEvent> findPendingEventsCreatedBefore(LocalDateTime cutoff, int limit) {
+		return outboxEventRepository.findPendingCreatedBeforeOrderByIdAsc(cutoff, limit);
 	}
 
 	public Optional<OutboxEvent> findPendingEventByNotificationId(Long notificationId) {

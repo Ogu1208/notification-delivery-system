@@ -10,6 +10,9 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLock;
@@ -21,6 +24,7 @@ import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
 
+@ExtendWith(OutputCaptureExtension.class)
 class NotificationSenderTest {
 
 	private final FakeNotificationRepository repository = new FakeNotificationRepository();
@@ -36,7 +40,7 @@ class NotificationSenderTest {
 
 	@Test
 	@DisplayName("대기 중인 알림을 발송하고 성공 상태로 변경한다")
-	void sendPendingNotificationAndMarksSent() {
+	void sendPendingNotificationAndMarksSent(CapturedOutput output) {
 		Notification notification = NotificationFixture.createNotification(1L);
 		repository.save(notification);
 
@@ -50,6 +54,12 @@ class NotificationSenderTest {
 		assertThat(notification.getSentAt()).isNotNull();
 		assertThat(dispatchLockManager.tryAcquireCount).isEqualTo(1);
 		assertThat(dispatchLockManager.closedLockCount).isEqualTo(1);
+		assertThat(output).contains(
+			"알림 발송 성공",
+			"notificationId=1",
+			"requestId=" + notification.getRequestId().value(),
+			"attemptCount=1"
+		);
 	}
 
 	@Test

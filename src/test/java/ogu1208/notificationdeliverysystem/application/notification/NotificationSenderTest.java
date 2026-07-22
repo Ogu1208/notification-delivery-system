@@ -16,13 +16,8 @@ import ogu1208.notificationdeliverysystem.application.notification.required.Disp
 import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLockManager;
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
-import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventNotifier;
-import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
-import ogu1208.notificationdeliverysystem.domain.outbox.OutboxAggregateType;
-import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
-import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEventStatus;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
 
 class NotificationSenderTest {
@@ -30,20 +25,9 @@ class NotificationSenderTest {
 	private final FakeNotificationRepository repository = new FakeNotificationRepository();
 	private final SpyExternalNotificationSender externalSender = new SpyExternalNotificationSender();
 	private final FakeDispatchLockManager dispatchLockManager = new FakeDispatchLockManager();
-	private final StubOutboxEventRepository outboxEventRepository = new StubOutboxEventRepository();
-	private final StubOutboxEventNotifier outboxEventNotifier = new StubOutboxEventNotifier();
-	private final NotificationRegisterTransactionService registerTransactionService = new NotificationRegisterTransactionService(
+	private final NotificationSender notificationSender = new NotificationDispatchService(
 		repository,
-		outboxEventRepository,
-		outboxEventNotifier
-	);
-	private final NotificationDispatchService dispatchService = new NotificationDispatchService(
-		repository,
-		externalSender
-	);
-	private final NotificationSender notificationSender = new NotificationModifyService(
-		registerTransactionService,
-		dispatchService,
+		externalSender,
 		dispatchLockManager
 	);
 
@@ -132,45 +116,6 @@ class NotificationSenderTest {
 				.stream()
 				.filter(notification -> notification.getRequestId().value().equals(requestId))
 				.findFirst();
-		}
-	}
-
-	private static class StubOutboxEventRepository implements OutboxEventRepository {
-
-		@Override
-		public OutboxEvent save(OutboxEvent outboxEvent) {
-			return outboxEvent;
-		}
-
-		@Override
-		public Optional<OutboxEvent> findById(Long id) {
-			return Optional.empty();
-		}
-
-		@Override
-		public List<OutboxEvent> findPendingOrderByIdAsc(int limit) {
-			return List.of();
-		}
-
-		@Override
-		public List<OutboxEvent> findProcessingUpdatedBefore(LocalDateTime cutoff, int limit) {
-			return List.of();
-		}
-
-		@Override
-		public Optional<OutboxEvent> findByAggregateTypeAndAggregateIdAndStatus(
-			OutboxAggregateType aggregateType,
-			Long aggregateId,
-			OutboxEventStatus status
-		) {
-			return Optional.empty();
-		}
-	}
-
-	private static class StubOutboxEventNotifier implements OutboxEventNotifier {
-
-		@Override
-		public void notifyOutboxSaved(Long notificationId) {
 		}
 	}
 

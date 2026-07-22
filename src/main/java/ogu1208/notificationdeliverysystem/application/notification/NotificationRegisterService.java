@@ -1,29 +1,20 @@
 package ogu1208.notificationdeliverysystem.application.notification;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
 import lombok.RequiredArgsConstructor;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
-import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationSender;
-import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLock;
-import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLockManager;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
 
 @Service
 @Validated
 @RequiredArgsConstructor
-public class NotificationModifyService implements NotificationRegister, NotificationSender {
-
-	private static final Logger log = LoggerFactory.getLogger(NotificationModifyService.class);
+public class NotificationRegisterService implements NotificationRegister {
 
 	private final NotificationRegisterTransactionService registerTransactionService;
-	private final NotificationDispatchService dispatchService;
-	private final DispatchLockManager dispatchLockManager;
 
 	@Override
 	public Notification register(NotificationRegisterRequest request) {
@@ -44,31 +35,6 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 		} catch (DataIntegrityViolationException e) {
 			return registerTransactionService.findByRequestId(request.requestId())
 				.orElseThrow(() -> e);
-		}
-	}
-
-	/**
-	 * Kafka at-least-once 재전달 대비
-	 *
-	 * 같은 메시지가 다시 와도 이미 완료된 알림은 외부 발송을 반복하지 않는다.
-	 * 동시 발송 방지는 이후 Redis 분산락 단계에서 보강한다.
-	 */
-	@Override
-	public void send(Long notificationId) {
-		if (dispatchService.isCompleted(notificationId)) {
-			log.info("완료 상태 알림 발송 건너뜀. notificationId={}", notificationId);
-			return;
-		}
-
-		var lock = dispatchLockManager.tryAcquire(notificationId);
-		if (lock.isEmpty()) {
-			log.info("다른 Consumer가 처리 중인 알림 발송 건너뜀. notificationId={}", notificationId);
-			return;
-		}
-
-		try (DispatchLock ignored = lock.get()) {
-			// try-with-resources가 발송 처리 종료 후 DispatchLock.close()를 호출해 락 해제를 보장한다.
-			dispatchService.send(notificationId);
 		}
 	}
 }

@@ -15,9 +15,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
-import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLock;
-import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLockManager;
-import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
 import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventNotifier;
 import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
@@ -34,8 +31,6 @@ import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
 class NotificationRegisterTest {
 
 	private final FakeNotificationRepository repository = new FakeNotificationRepository();
-	private final StubExternalNotificationSender externalSender = new StubExternalNotificationSender();
-	private final StubDispatchLockManager dispatchLockManager = new StubDispatchLockManager();
 	private final SpyOutboxEventRepository outboxEventRepository = new SpyOutboxEventRepository();
 	private final SpyOutboxEventNotifier outboxEventNotifier = new SpyOutboxEventNotifier();
 	private final NotificationRegisterTransactionService registerTransactionService = new NotificationRegisterTransactionService(
@@ -43,15 +38,7 @@ class NotificationRegisterTest {
 		outboxEventRepository,
 		outboxEventNotifier
 	);
-	private final NotificationDispatchService dispatchService = new NotificationDispatchService(
-		repository,
-		externalSender
-	);
-	private final NotificationRegister notificationRegister = new NotificationModifyService(
-		registerTransactionService,
-		dispatchService,
-		dispatchLockManager
-	);
+	private final NotificationRegister notificationRegister = new NotificationRegisterService(registerTransactionService);
 
 	@Test
 	@DisplayName("알림 등록 요청을 저장하고 Outbox 이벤트를 저장한다")
@@ -141,22 +128,6 @@ class NotificationRegisterTest {
 		@Override
 		public Optional<Notification> findById(Long id) {
 			return Optional.empty();
-		}
-	}
-
-	private static class StubExternalNotificationSender implements ExternalNotificationSender {
-
-		@Override
-		public void send(Notification notification) {
-		}
-	}
-
-	private static class StubDispatchLockManager implements DispatchLockManager {
-
-		@Override
-		public Optional<DispatchLock> tryAcquire(Long notificationId) {
-			return Optional.of(() -> {
-			});
 		}
 	}
 

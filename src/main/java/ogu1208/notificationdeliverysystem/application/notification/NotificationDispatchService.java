@@ -5,6 +5,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationSender;
+import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLock;
+import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLockManager;
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
@@ -12,19 +15,14 @@ import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class NotificationDispatchService {
+public class NotificationDispatchService implements NotificationSender {
 
 	private final NotificationRepository notificationRepository;
 	private final ExternalNotificationSender externalNotificationSender;
-
-	@Transactional(readOnly = true)
-	public boolean isCompleted(Long notificationId) {
-		Notification notification = getNotification(notificationId);
-
-		return notification.isCompleted();
-	}
+	private final DispatchLockManager dispatchLockManager;
 
 	@Transactional
+	@Override
 	public void send(Long notificationId) {
 		Notification notification = getNotification(notificationId);
 
@@ -33,8 +31,19 @@ public class NotificationDispatchService {
 			return;
 		}
 
-		notification.startProcessing();
+		var lock = dispatchLockManager.tryAcquire(notificationId);
+		if (lock.isEmpty()) {
+			log.info("다른 Consumer가 처리 중인 알림 발송 건너뜀. notificationId={}", notificationId);
+			return;
+		}
 
+		try (DispatchLock ignored = lock.get()) {
+			dispatch(notification);
+		}
+	}
+
+	private void dispatch(Notification notification) {
+		notification.startProcessing();
 		try {
 			externalNotificationSender.send(notification);
 		} catch (RuntimeException e) {

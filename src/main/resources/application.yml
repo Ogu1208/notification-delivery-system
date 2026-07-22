@@ -25,6 +25,9 @@ notification:
     recovery-interval-ms: 30000
     recovery-batch-size: 500
     processing-timeout-ms: 300000
+  dispatch-lock:
+    type: dummy
+    ttl-ms: 30000
   role:
     api-enabled: true
     worker-enabled: false

@@ -12,6 +12,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationSender;
+import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLock;
+import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLockManager;
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
 import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventNotifier;
@@ -27,6 +29,7 @@ class NotificationSenderTest {
 
 	private final FakeNotificationRepository repository = new FakeNotificationRepository();
 	private final SpyExternalNotificationSender externalSender = new SpyExternalNotificationSender();
+	private final FakeDispatchLockManager dispatchLockManager = new FakeDispatchLockManager();
 	private final StubOutboxEventRepository outboxEventRepository = new StubOutboxEventRepository();
 	private final StubOutboxEventNotifier outboxEventNotifier = new StubOutboxEventNotifier();
 	private final NotificationRegisterTransactionService registerTransactionService = new NotificationRegisterTransactionService(
@@ -34,10 +37,14 @@ class NotificationSenderTest {
 		outboxEventRepository,
 		outboxEventNotifier
 	);
-	private final NotificationSender notificationSender = new NotificationModifyService(
+	private final NotificationSendTransactionService sendTransactionService = new NotificationSendTransactionService(
 		repository,
-		externalSender,
-		registerTransactionService
+		externalSender
+	);
+	private final NotificationSender notificationSender = new NotificationModifyService(
+		registerTransactionService,
+		sendTransactionService,
+		dispatchLockManager
 	);
 
 	@Test
@@ -54,6 +61,8 @@ class NotificationSenderTest {
 		assertThat(notification.getAttemptCount()).isEqualTo(1);
 		assertThat(notification.getSendingStartedAt()).isNotNull();
 		assertThat(notification.getSentAt()).isNotNull();
+		assertThat(dispatchLockManager.tryAcquireCount).isEqualTo(1);
+		assertThat(dispatchLockManager.closedLockCount).isEqualTo(1);
 	}
 
 	@Test
@@ -68,6 +77,7 @@ class NotificationSenderTest {
 
 		assertThat(externalSender.sendCount).isZero();
 		assertThat(notification.getStatus()).isEqualTo(NotificationStatus.SENT);
+		assertThat(dispatchLockManager.tryAcquireCount).isZero();
 	}
 
 	@Test
@@ -83,6 +93,22 @@ class NotificationSenderTest {
 		assertThat(notification.getAttemptCount()).isEqualTo(1);
 		assertThat(notification.getFailureReason()).isEqualTo("mock failure");
 		assertThat(notification.getFailedAt()).isNotNull();
+		assertThat(dispatchLockManager.closedLockCount).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("발송 락을 획득하지 못하면 외부 발송을 건너뛴다")
+	void sendSkipsExternalSenderWhenDispatchLockIsNotAcquired() {
+		Notification notification = NotificationFixture.createNotification(1L);
+		repository.save(notification);
+		dispatchLockManager.acquire = false;
+
+		notificationSender.send(1L);
+
+		assertThat(externalSender.sendCount).isZero();
+		assertThat(notification.getStatus()).isEqualTo(NotificationStatus.PENDING);
+		assertThat(dispatchLockManager.tryAcquireCount).isEqualTo(1);
+		assertThat(dispatchLockManager.closedLockCount).isZero();
 	}
 
 	private static class FakeNotificationRepository implements NotificationRepository {
@@ -145,6 +171,24 @@ class NotificationSenderTest {
 
 		@Override
 		public void notifyOutboxSaved(Long notificationId) {
+		}
+	}
+
+	private static class FakeDispatchLockManager implements DispatchLockManager {
+
+		private boolean acquire = true;
+		private int tryAcquireCount;
+		private int closedLockCount;
+
+		@Override
+		public Optional<DispatchLock> tryAcquire(Long notificationId) {
+			tryAcquireCount++;
+
+			if (!acquire) {
+				return Optional.empty();
+			}
+
+			return Optional.of(() -> closedLockCount++);
 		}
 	}
 

@@ -147,6 +147,9 @@ notification:
     recovery-interval-ms: 30000
     recovery-batch-size: 500
     processing-timeout-ms: 300000
+  dispatch-lock:
+    type: dummy
+    ttl-ms: 30000
   role:
     api-enabled: true
     worker-enabled: false
@@ -154,6 +157,7 @@ notification:
 
 - `notification.role.worker-enabled=true`: Kafka Consumer 활성화
 - `notification.outbox.publisher-enabled=true`: Outbox 즉시 발행 listener, 발행 polling, 복구 polling 활성화
+- `notification.dispatch-lock.type=redis`: Redis 기반 발송 락 활성화
 
 ## API 예시
 

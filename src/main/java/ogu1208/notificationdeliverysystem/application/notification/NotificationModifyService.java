@@ -4,14 +4,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import lombok.RequiredArgsConstructor;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationSender;
-import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
-import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
+import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLock;
+import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLockManager;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
 
@@ -22,9 +21,9 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 
 	private static final Logger log = LoggerFactory.getLogger(NotificationModifyService.class);
 
-	private final NotificationRepository notificationRepository;
-	private final ExternalNotificationSender externalNotificationSender;
 	private final NotificationRegisterTransactionService registerTransactionService;
+	private final NotificationSendTransactionService sendTransactionService;
+	private final DispatchLockManager dispatchLockManager;
 
 	@Override
 	public Notification register(NotificationRegisterRequest request) {
@@ -55,26 +54,21 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 	 * 동시 발송 방지는 이후 Redis 분산락 단계에서 보강한다.
 	 */
 	@Override
-	@Transactional
 	public void send(Long notificationId) {
-		Notification notification = notificationRepository.findById(notificationId)
-			.orElseThrow(() -> new IllegalArgumentException("알림을 찾을 수 없습니다"));
-
-		if (notification.isCompleted()) {
-			log.info("완료 상태 알림 발송 건너뜀. notificationId={}, status={}", notification.getId(), notification.getStatus());
+		if (sendTransactionService.isCompleted(notificationId)) {
+			log.info("완료 상태 알림 발송 건너뜀. notificationId={}", notificationId);
 			return;
 		}
 
-		notification.startSending();
-
-		try {
-			externalNotificationSender.send(notification);
-		} catch (RuntimeException e) {
-			notification.markFailed(e.getMessage());
-			log.warn("알림 발송 실패. notificationId={}, reason={}", notification.getId(), e.getMessage());
+		var lock = dispatchLockManager.tryAcquire(notificationId);
+		if (lock.isEmpty()) {
+			log.info("다른 Consumer가 처리 중인 알림 발송 건너뜀. notificationId={}", notificationId);
 			return;
 		}
 
-		notification.markSent();
+		try (DispatchLock ignored = lock.get()) {
+			// try-with-resources가 발송 트랜잭션 종료 후 DispatchLock.close()를 호출해 락 해제를 보장한다.
+			sendTransactionService.send(notificationId);
+		}
 	}
 }

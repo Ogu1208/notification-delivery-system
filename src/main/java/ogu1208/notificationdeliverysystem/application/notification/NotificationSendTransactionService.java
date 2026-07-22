@@ -33,7 +33,7 @@ public class NotificationSendTransactionService {
 			return;
 		}
 
-		notification.startSending();
+		notification.startProcessing();
 
 		try {
 			externalNotificationSender.send(notification);

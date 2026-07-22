@@ -54,6 +54,18 @@ public class Notification extends BaseEntity {
 
 	private int attemptCount;
 
+	private int retryCount;
+
+	private String lastError;
+
+	private String lastErrorCode;
+
+	private Integer lastExternalStatusCode;
+
+	private LocalDateTime lastFailedAt;
+
+	private LocalDateTime nextRetryAt;
+
 	private Notification(NotificationRegisterRequest request) {
 		this.requestId = new RequestId(request.requestId());
 		hasText(request.receiver(), "수신자는 필수입니다");
@@ -65,15 +77,16 @@ public class Notification extends BaseEntity {
 		this.content = request.content();
 		this.status = NotificationStatus.PENDING;
 		this.attemptCount = 0;
+		this.retryCount = 0;
 	}
 
 	public static Notification register(NotificationRegisterRequest request) {
 		return new Notification(request);
 	}
 
-	public void startSending() {
+	public void startProcessing() {
 		state(!isCompleted(), "최종 상태의 알림은 발송을 시작할 수 없습니다");
-		changeStatusTo(NotificationStatus.SENDING);
+		changeStatusTo(NotificationStatus.PROCESSING);
 		sendingStartedAt = LocalDateTime.now();
 		attemptCount++;
 	}
@@ -85,6 +98,26 @@ public class Notification extends BaseEntity {
 
 	public void markFailed(String failureReason) {
 		changeStatusTo(NotificationStatus.FAILED);
+		failedAt = LocalDateTime.now();
+		hasText(failureReason, "실패 사유는 필수입니다");
+		this.failureReason = failureReason;
+	}
+
+	public void markRetryWait(String lastError, String lastErrorCode, Integer lastExternalStatusCode,
+		LocalDateTime nextRetryAt) {
+		changeStatusTo(NotificationStatus.RETRY_WAIT);
+		hasText(lastError, "실패 사유는 필수입니다");
+		hasText(lastErrorCode, "실패 코드는 필수입니다");
+		this.retryCount++;
+		this.lastError = lastError;
+		this.lastErrorCode = lastErrorCode;
+		this.lastExternalStatusCode = lastExternalStatusCode;
+		this.lastFailedAt = LocalDateTime.now();
+		this.nextRetryAt = requireNonNull(nextRetryAt, "다음 재시도 시각은 필수입니다");
+	}
+
+	public void markDead(String failureReason) {
+		changeStatusTo(NotificationStatus.DEAD);
 		failedAt = LocalDateTime.now();
 		hasText(failureReason, "실패 사유는 필수입니다");
 		this.failureReason = failureReason;

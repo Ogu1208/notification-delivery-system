@@ -69,7 +69,7 @@ class NotificationSenderTest {
 	@DisplayName("이미 완료된 알림은 다시 발송하지 않는다")
 	void sendSkipsCompletedNotification() {
 		Notification notification = NotificationFixture.createNotification(1L);
-		notification.startSending();
+		notification.startProcessing();
 		notification.markSent();
 		repository.save(notification);
 

@@ -2,19 +2,22 @@ package ogu1208.notificationdeliverysystem.domain.notification;
 
 public enum NotificationStatus {
 	PENDING,
-	SENDING,
+	PROCESSING,
 	SENT,
-	FAILED;
+	RETRY_WAIT,
+	FAILED,
+	DEAD;
 
 	public boolean canChangeTo(NotificationStatus targetStatus) {
 		return switch (this) {
-			case PENDING -> targetStatus == SENDING;
-			case SENDING -> targetStatus == SENT || targetStatus == FAILED;
-			case SENT, FAILED -> false;
+			case PENDING -> targetStatus == PROCESSING;
+			case PROCESSING -> targetStatus == SENT || targetStatus == RETRY_WAIT || targetStatus == FAILED;
+			case RETRY_WAIT -> targetStatus == PROCESSING || targetStatus == DEAD;
+			case SENT, FAILED, DEAD -> false;
 		};
 	}
 
 	public boolean isCompleted() {
-		return this == SENT || this == FAILED;
+		return this == SENT || this == FAILED || this == DEAD;
 	}
 }

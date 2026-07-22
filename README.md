@@ -11,6 +11,7 @@ API 서버와 Worker 서버는 아직 물리적으로 분리하지 않았지만,
 - [구현 내용](docs/구현내용.md)
 - [설계 판단과 고민](docs/설계판단과고민.md)
 - [멱등성과 중복 처리](docs/멱등성과중복처리.md)
+- [Week2 발송 보장과 재처리](docs/week2-발송보장과재처리.md)
 - [도메인 모델](도메인모델.md)
 - [아키텍처 가이드](아키텍처가이드.md)
 - [용어 사전](용어사전.md)
@@ -36,16 +37,19 @@ API 서버와 Worker 서버는 아직 물리적으로 분리하지 않았지만,
 - 실패하거나 남은 Outbox 이벤트 polling 재처리
 - Kafka Producer / Consumer
 - 채널별 Mock Sender 로그 발송
+- Consumer 발송 직전 Redis 분산락
+- 알림 상태 `PROCESSING`, `RETRY_WAIT`, `DEAD`와 실패 추적 필드
 
 ## 다음 작업
 
-- Consumer 중복 발송 방지를 위한 Redis 분산락 구현
-- Redis 락 획득 실패 시 외부 발송을 건너뛰는 처리
-- 발송 완료 후 Redis 락 해제 처리
-- Outbox 발행 실패 시 retry count와 실패 사유 저장
+- 실제 Mock Send API HTTP 연동
+- timeout, 4xx, 5xx, 429, 응답 파싱 실패 분류
+- 발송 실패 시 retry count, 실패 사유, 다음 재시도 시각 저장
+- 재시도 한도 초과 시 `DEAD` 상태로 분리
+- `RETRY_WAIT` 대상 재처리 poller 추가
 - 발행 완료된 Outbox 이벤트 삭제 또는 아카이빙 정책 정리
 - 여러 Outbox publisher 실행 시 row 선점 방식 검토
-- 실제 외부 API 연동 시 채널별 rate limit과 retry 정책 추가
+- 성능 측정 시나리오와 제출 문서 정리
 
 ## 아키텍처 개요
 
@@ -127,6 +131,9 @@ flowchart TD
     O --> P["SENT / FAILED"]
 ```
 
+Week2에서는 채널별 로그 Mock Sender를 실제 HTTP Mock Send API adapter로 교체하고, 결과 상태를 `SENT`, `FAILED`, `RETRY_WAIT`, `DEAD`로 더 세분화한다.
+상세 설계는 [Week2 발송 보장과 재처리](docs/week2-발송보장과재처리.md)를 따른다.
+
 ## 멱등성과 중복 처리
 
 중복은 API 등록, Outbox 발행, Kafka 소비, 외부 발송 단계에서 각각 다른 형태로 발생할 수 있습니다.
@@ -150,6 +157,13 @@ notification:
   dispatch-lock:
     type: dummy
     ttl-ms: 30000
+  mock-send:
+    base-url: http://localhost:8081
+    connect-timeout-ms: 1000
+    read-timeout-ms: 3000
+  retry:
+    max-attempts: 3
+    backoff-seconds: [5, 15, 45]
   role:
     api-enabled: true
     worker-enabled: false
@@ -158,6 +172,7 @@ notification:
 - `notification.role.worker-enabled=true`: Kafka Consumer 활성화
 - `notification.outbox.publisher-enabled=true`: Outbox 즉시 발행 listener, 발행 polling, 복구 polling 활성화
 - `notification.dispatch-lock.type=redis`: Redis 기반 발송 락 활성화
+- `notification.mock-send.base-url`: Week2 Mock Send API 주소. 기본 후보는 `http://localhost:8081`
 
 ## API 예시
 

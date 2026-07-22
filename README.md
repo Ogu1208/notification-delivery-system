@@ -36,13 +36,12 @@ API 서버와 Worker 서버는 아직 물리적으로 분리하지 않았지만,
 - commit 이후 Outbox 즉시 발행 시도
 - 실패하거나 남은 Outbox 이벤트 polling 재처리
 - Kafka Producer / Consumer
-- 채널별 Mock Sender 로그 발송
+- Mock Send API HTTP adapter
 - Consumer 발송 직전 Redis 분산락
 - 알림 상태 `PROCESSING`, `RETRY_WAIT`, `DEAD`와 실패 추적 필드
 
 ## 다음 작업
 
-- 실제 Mock Send API HTTP 연동
 - timeout, 4xx, 5xx, 429, 응답 파싱 실패 분류
 - 발송 실패 시 retry count, 실패 사유, 다음 재시도 시각 저장
 - 재시도 한도 초과 시 `DEAD` 상태로 분리
@@ -71,7 +70,7 @@ Kafka, JPA, Web, Mock Sender 같은 기술 구현은 adapter 계층에 둡니다
 
 - 요청 저장: API는 알림과 Outbox 이벤트를 DB에 저장한 뒤 바로 응답합니다.
 - 메시지 발행: commit 이후 Outbox 이벤트를 Kafka로 발행합니다. 즉시 발행에 실패하면 polling publisher가 다시 처리합니다.
-- 발송 처리: Kafka Consumer가 메시지를 읽고 채널별 Mock Sender로 발송합니다.
+- 발송 처리: Kafka Consumer가 메시지를 읽고 Mock Send API adapter로 발송합니다.
 
 ```text
 1. 요청 저장
@@ -102,6 +101,7 @@ Kafka, JPA, Web, Mock Sender 같은 기술 구현은 adapter 계층에 둡니다
     -> NotificationSender
     -> MockNotificationSenderRouter
     -> EMAIL / SMS / KAKAO Mock Sender
+    -> Mock Send API
     -> SENT 또는 FAILED 상태 반영
 ```
 
@@ -131,7 +131,7 @@ flowchart TD
     O --> P["SENT / FAILED"]
 ```
 
-Week2에서는 채널별 로그 Mock Sender를 실제 HTTP Mock Send API adapter로 교체하고, 결과 상태를 `SENT`, `FAILED`, `RETRY_WAIT`, `DEAD`로 더 세분화한다.
+Week2에서는 기존 로그 Mock Sender를 실제 HTTP Mock Send API adapter로 교체하고, 결과 상태를 `SENT`, `FAILED`, `RETRY_WAIT`, `DEAD`로 더 세분화한다.
 상세 설계는 [Week2 발송 보장과 재처리](docs/week2-발송보장과재처리.md)를 따른다.
 
 ## 멱등성과 중복 처리
@@ -158,7 +158,6 @@ notification:
     type: dummy
     ttl-ms: 30000
   mock-send:
-    type: log
     base-url: http://localhost:8081
     connect-timeout-ms: 1000
     read-timeout-ms: 3000
@@ -173,7 +172,6 @@ notification:
 - `notification.role.worker-enabled=true`: Kafka Consumer 활성화
 - `notification.outbox.publisher-enabled=true`: Outbox 즉시 발행 listener, 발행 polling, 복구 polling 활성화
 - `notification.dispatch-lock.type=redis`: Redis 기반 발송 락 활성화
-- `notification.mock-send.type=http`: 로그 Mock Sender 대신 실제 Mock Send API HTTP adapter 활성화
 - `notification.mock-send.base-url`: Week2 Mock Send API 주소. 기본 후보는 `http://localhost:8081`
 
 ## API 예시

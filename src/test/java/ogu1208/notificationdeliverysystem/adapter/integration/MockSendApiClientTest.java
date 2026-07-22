@@ -19,14 +19,14 @@ import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
 
-class MockSendApiNotificationSenderTest {
+class MockSendApiClientTest {
 
 	@Test
 	@DisplayName("Mock Send API로 알림 발송 요청을 보낸다")
 	void sendNotificationToMockSendApi() {
 		RestClient.Builder restClientBuilder = RestClient.builder();
 		MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
-		MockSendApiNotificationSender sender = new MockSendApiNotificationSender(
+		MockSendApiClient client = new MockSendApiClient(
 			restClientBuilder.baseUrl("http://localhost:8081").build()
 		);
 		Notification notification = createSmsNotification();
@@ -49,7 +49,7 @@ class MockSendApiNotificationSenderTest {
 				}
 				""", MediaType.APPLICATION_JSON));
 
-		sender.send(notification);
+		client.send(notification, NotificationChannel.SMS);
 
 		server.verify();
 	}

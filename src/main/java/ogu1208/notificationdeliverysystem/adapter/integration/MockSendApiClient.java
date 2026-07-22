@@ -3,24 +3,23 @@ package ogu1208.notificationdeliverysystem.adapter.integration;
 import java.time.Duration;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
 
 @Component
-@ConditionalOnProperty(name = "notification.mock-send.type", havingValue = "http")
-public class MockSendApiNotificationSender implements ExternalNotificationSender {
+public class MockSendApiClient {
 
 	private final RestClient restClient;
 
-	public MockSendApiNotificationSender(
+	@Autowired
+	public MockSendApiClient(
 		RestClient.Builder restClientBuilder,
 		@Value("${notification.mock-send.base-url:http://localhost:8081}") String baseUrl,
 		@Value("${notification.mock-send.connect-timeout-ms:1000}") long connectTimeoutMs,
@@ -35,16 +34,15 @@ public class MockSendApiNotificationSender implements ExternalNotificationSender
 			.build();
 	}
 
-	MockSendApiNotificationSender(RestClient restClient) {
+	MockSendApiClient(RestClient restClient) {
 		this.restClient = restClient;
 	}
 
-	@Override
-	public void send(Notification notification) {
+	public void send(Notification notification, NotificationChannel channel) {
 		restClient.post()
 			.uri("/mock/send")
 			.contentType(MediaType.APPLICATION_JSON)
-			.body(MockSendRequest.from(notification))
+			.body(MockSendRequest.from(notification, channel))
 			.retrieve()
 			.toBodilessEntity();
 	}
@@ -57,10 +55,10 @@ public class MockSendApiNotificationSender implements ExternalNotificationSender
 		Map<String, Object> metadata
 	) {
 
-		private static MockSendRequest from(Notification notification) {
+		private static MockSendRequest from(Notification notification, NotificationChannel channel) {
 			return new MockSendRequest(
 				notification.getRequestId().value(),
-				notification.getChannel(),
+				channel,
 				notification.getReceiver(),
 				notification.getContent(),
 				Map.of("notificationId", notification.getId())

@@ -7,6 +7,10 @@ import ogu1208.notificationdeliverysystem.domain.notification.NotificationChanne
 @Component
 public class EmailMockSender extends AbstractMockChannelSender {
 
+	public EmailMockSender(MockSendApiClient mockSendApiClient) {
+		super(mockSendApiClient);
+	}
+
 	@Override
 	public NotificationChannel channel() {
 		return NotificationChannel.EMAIL;

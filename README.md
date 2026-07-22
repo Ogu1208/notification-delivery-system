@@ -165,6 +165,8 @@ notification:
     publisher-enabled: false
     polling-interval-ms: 1000
     polling-batch-size: 100
+    max-count: 3
+    backoff-seconds: 10,20,30
   role:
     api-enabled: true
     worker-enabled: false
@@ -173,6 +175,8 @@ notification:
 - `notification.role.worker-enabled=true`: Kafka Consumer 활성화
 - `notification.outbox.publisher-enabled=true`: Outbox 즉시 발행 listener, 발행 polling, 복구 polling 활성화
 - `notification.retry.publisher-enabled=true`: `RETRY_WAIT` 알림 재처리 polling 활성화
+- `notification.retry.max-count`: 재시도 가능한 발송 실패의 최대 자동 재시도 횟수
+- `notification.retry.backoff-seconds`: 재시도 횟수별 대기 시간
 - `notification.dispatch-lock.type=redis`: Redis 기반 발송 락 활성화
 - `notification.mock-send.base-url`: Week2 Mock Send API 주소. 기본 후보는 `http://localhost:8081`
 

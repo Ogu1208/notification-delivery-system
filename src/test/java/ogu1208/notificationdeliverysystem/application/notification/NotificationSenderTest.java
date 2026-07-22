@@ -26,10 +26,12 @@ class NotificationSenderTest {
 	private final FakeNotificationRepository repository = new FakeNotificationRepository();
 	private final SpyExternalNotificationSender externalSender = new SpyExternalNotificationSender();
 	private final FakeDispatchLockManager dispatchLockManager = new FakeDispatchLockManager();
+	private final NotificationRetryPolicy retryPolicy = new NotificationRetryPolicy(3, List.of(10L, 20L, 30L));
 	private final NotificationSender notificationSender = new NotificationDispatchService(
 		repository,
 		externalSender,
-		dispatchLockManager
+		dispatchLockManager,
+		retryPolicy
 	);
 
 	@Test
@@ -105,6 +107,30 @@ class NotificationSenderTest {
 		assertThat(notification.getLastError()).isEqualTo("mock api timeout");
 		assertThat(notification.getLastErrorCode()).isEqualTo("MOCK_TIMEOUT");
 		assertThat(notification.getNextRetryAt()).isNotNull();
+	}
+
+	@Test
+	@DisplayName("설정된 backoff 초를 기준으로 다음 재시도 시간을 계산한다")
+	void sendSchedulesNextRetryWithConfiguredBackoff() {
+		NotificationSender notificationSender = new NotificationDispatchService(
+			repository,
+			externalSender,
+			dispatchLockManager,
+			new NotificationRetryPolicy(3, List.of(60L, 120L, 180L))
+		);
+		Notification notification = NotificationFixture.createNotification(1L);
+		repository.save(notification);
+		externalSender.failure = ExternalNotificationSendException.retryable(
+			"mock api timeout",
+			"MOCK_TIMEOUT",
+			null,
+			null
+		);
+		LocalDateTime beforeSend = LocalDateTime.now();
+
+		notificationSender.send(1L);
+
+		assertThat(notification.getNextRetryAt()).isAfterOrEqualTo(beforeSend.plusSeconds(60));
 	}
 
 	@Test

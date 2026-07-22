@@ -20,12 +20,10 @@ import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 @RequiredArgsConstructor
 public class NotificationDispatchService implements NotificationSender {
 
-	private static final int MAX_RETRY_COUNT = 3;
-	private static final long RETRY_BACKOFF_SECONDS = 10;
-
 	private final NotificationRepository notificationRepository;
 	private final ExternalNotificationSender externalNotificationSender;
 	private final DispatchLockManager dispatchLockManager;
+	private final NotificationRetryPolicy retryPolicy;
 
 	@Transactional
 	@Override
@@ -79,7 +77,7 @@ public class NotificationDispatchService implements NotificationSender {
 			return;
 		}
 
-		if (notification.getRetryCount() >= MAX_RETRY_COUNT) {
+		if (retryPolicy.isExceeded(notification.getRetryCount())) {
 			notification.markDead("재시도 한도 초과: " + e.getMessage());
 			log.warn(
 				"알림 발송 재시도 한도 초과. notificationId={}, requestId={}, retryCount={}, errorCode={}, elapsedTimeMs={}, reason={}",
@@ -94,7 +92,7 @@ public class NotificationDispatchService implements NotificationSender {
 		}
 
 		int nextRetryCount = notification.getRetryCount() + 1;
-		LocalDateTime nextRetryAt = LocalDateTime.now().plusSeconds(RETRY_BACKOFF_SECONDS * nextRetryCount);
+		LocalDateTime nextRetryAt = retryPolicy.nextRetryAt(nextRetryCount, LocalDateTime.now());
 		notification.markRetryWait(e.getMessage(), e.getErrorCode(), e.getExternalStatusCode(), nextRetryAt);
 		log.warn(
 			"알림 발송 재시도 대기. notificationId={}, requestId={}, retryCount={}, errorCode={}, externalStatusCode={}, elapsedTimeMs={}, nextRetryAt={}",

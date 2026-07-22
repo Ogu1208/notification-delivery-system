@@ -36,6 +36,8 @@ notification:
     publisher-enabled: false
     polling-interval-ms: 1000
     polling-batch-size: 100
+    max-count: 3
+    backoff-seconds: 10,20,30
   role:
     api-enabled: true
     worker-enabled: false

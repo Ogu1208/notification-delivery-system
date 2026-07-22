@@ -168,9 +168,9 @@ Mock API 호출 결과는 같은 실패로 처리하지 않는다.
 초기 backoff는 다음처럼 둔다.
 
 ```text
-1회 실패 후: 5초 뒤 재시도
-2회 실패 후: 15초 뒤 재시도
-3회 실패 후: 45초 뒤 재시도
+1회 실패 후: 10초 뒤 재시도
+2회 실패 후: 20초 뒤 재시도
+3회 실패 후: 30초 뒤 재시도
 3회 초과: DEAD
 ```
 
@@ -210,7 +210,7 @@ Kafka Consumer
 ```text
 NotificationRetryPoller
  -> status = RETRY_WAIT and nextRetryAt <= now 대상 제한 조회
- -> Kafka WORK 메시지 재발행
+ -> 기존 단건 알림 발송 토픽으로 재발행
  -> Consumer가 다시 처리
 ```
 
@@ -264,7 +264,7 @@ Mock API 요청에는 `requestId`를 포함하므로, 실제 외부 API로 바�
 ### Mock API 호출 중 timeout이 나면 이 알림은 어떤 상태가 되나?
 
 connect timeout 또는 read timeout은 외부 API 일시 장애로 보고 `RETRY_WAIT` 상태가 된다.
-`retryCount`, `lastError`, `nextRetryAt`을 저장해 이후 retry poller가 다시 Kafka WORK 메시지를 발행한다.
+`retryCount`, `lastError`, `nextRetryAt`을 저장해 이후 retry poller가 다시 기존 단건 알림 발송 토픽으로 메시지를 발행한다.
 최대 재시도 3회를 초과하면 `DEAD`로 전환한다.
 
 ### Consumer가 발송 후 commit 전 죽으면 중복 발송 되지 않나?
@@ -373,7 +373,7 @@ partition key 선택에 따라 hot partition이 생길 수 있고, DB 상태 upd
    - 완료: `DEAD`
 5. retry poller 추가
    - 완료: `RETRY_WAIT`와 `nextRetryAt` 기준 조회
-   - 완료: Kafka WORK 메시지 재발행
+   - 완료: 기존 단건 알림 발송 토픽으로 재발행
 6. 중복 발송 방지 보강
    - 완료: 최종 상태 skip 기준에 `DEAD` 포함
    - 완료: Redis lock TTL이 HTTP timeout보다 길도록 설정

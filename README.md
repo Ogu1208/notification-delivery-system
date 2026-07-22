@@ -141,6 +141,12 @@ Week2에서는 기존 로그 Mock Sender를 실제 HTTP Mock Send API adapter로
 
 ## 실행 설정
 
+로컬 Kafka와 Redis는 프로젝트 루트에서 다음 명령으로 실행할 수 있습니다.
+
+```bash
+docker compose up -d
+```
+
 ```yaml
 notification:
   kafka:

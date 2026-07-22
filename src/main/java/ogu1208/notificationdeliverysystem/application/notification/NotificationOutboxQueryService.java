@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
@@ -16,7 +17,7 @@ import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
 import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEventStatus;
 
 @Service
-@Transactional(readOnly = true)
+@Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
 @RequiredArgsConstructor
 public class NotificationOutboxQueryService {
 

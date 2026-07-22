@@ -43,13 +43,13 @@ class NotificationRegisterTest {
 		outboxEventRepository,
 		outboxEventNotifier
 	);
-	private final NotificationSendTransactionService sendTransactionService = new NotificationSendTransactionService(
+	private final NotificationDispatchService dispatchService = new NotificationDispatchService(
 		repository,
 		externalSender
 	);
 	private final NotificationRegister notificationRegister = new NotificationModifyService(
 		registerTransactionService,
-		sendTransactionService,
+		dispatchService,
 		dispatchLockManager
 	);
 

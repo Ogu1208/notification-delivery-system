@@ -22,7 +22,7 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 	private static final Logger log = LoggerFactory.getLogger(NotificationModifyService.class);
 
 	private final NotificationRegisterTransactionService registerTransactionService;
-	private final NotificationSendTransactionService sendTransactionService;
+	private final NotificationDispatchService dispatchService;
 	private final DispatchLockManager dispatchLockManager;
 
 	@Override
@@ -55,7 +55,7 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 	 */
 	@Override
 	public void send(Long notificationId) {
-		if (sendTransactionService.isCompleted(notificationId)) {
+		if (dispatchService.isCompleted(notificationId)) {
 			log.info("완료 상태 알림 발송 건너뜀. notificationId={}", notificationId);
 			return;
 		}
@@ -67,8 +67,8 @@ public class NotificationModifyService implements NotificationRegister, Notifica
 		}
 
 		try (DispatchLock ignored = lock.get()) {
-			// try-with-resources가 발송 트랜잭션 종료 후 DispatchLock.close()를 호출해 락 해제를 보장한다.
-			sendTransactionService.send(notificationId);
+			// try-with-resources가 발송 처리 종료 후 DispatchLock.close()를 호출해 락 해제를 보장한다.
+			dispatchService.send(notificationId);
 		}
 	}
 }

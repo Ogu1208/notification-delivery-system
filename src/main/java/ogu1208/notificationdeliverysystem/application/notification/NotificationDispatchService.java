@@ -12,7 +12,7 @@ import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class NotificationSendTransactionService {
+public class NotificationDispatchService {
 
 	private final NotificationRepository notificationRepository;
 	private final ExternalNotificationSender externalNotificationSender;

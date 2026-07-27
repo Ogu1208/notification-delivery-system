@@ -166,6 +166,10 @@ class NotificationSenderTest {
 		assertThat(notification.getStatus()).isEqualTo(NotificationStatus.DEAD);
 		assertThat(notification.getRetryCount()).isEqualTo(3);
 		assertThat(notification.getFailureReason()).isEqualTo("재시도 한도 초과: mock api unavailable");
+		assertThat(notification.getFailedAt()).isNotNull();
+		assertThat(notification.getLastError()).isEqualTo("mock api unavailable");
+		assertThat(notification.getLastErrorCode()).isEqualTo("MOCK_UNAVAILABLE");
+		assertThat(notification.getLastExternalStatusCode()).isEqualTo(503);
 	}
 
 	@Test

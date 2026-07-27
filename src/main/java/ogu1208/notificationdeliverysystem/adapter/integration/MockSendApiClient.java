@@ -6,8 +6,11 @@ import java.time.Duration;
 import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -22,6 +25,8 @@ import ogu1208.notificationdeliverysystem.domain.notification.NotificationChanne
 
 @Component
 public class MockSendApiClient {
+
+	private static final Logger log = LoggerFactory.getLogger(MockSendApiClient.class);
 
 	private final RestClient restClient;
 	private final ObjectMapper objectMapper;
@@ -56,7 +61,7 @@ public class MockSendApiClient {
 	public void send(Notification notification, NotificationChannel channel) {
 		long startedAt = System.nanoTime();
 		try {
-			restClient.post()
+			MockSendResponse body = restClient.post()
 				.uri("/mock/send")
 				.contentType(MediaType.APPLICATION_JSON)
 				.body(MockSendRequest.from(notification, channel))
@@ -64,8 +69,8 @@ public class MockSendApiClient {
 					if (response.getStatusCode().isError()) {
 						throw mapErrorResponse(response, startedAt);
 					}
-					MockSendResponse body = response.bodyTo(MockSendResponse.class);
-					if (body == null) {
+					MockSendResponse parsed = response.bodyTo(MockSendResponse.class);
+					if (parsed == null) {
 						throw ExternalNotificationSendException.nonRetryable(
 							"Mock Send API 성공 응답 본문이 비어 있습니다",
 							"MOCK_EMPTY_SUCCESS_BODY",
@@ -74,8 +79,17 @@ public class MockSendApiClient {
 							null
 						);
 					}
-					return body;
+					return parsed;
 				});
+			log.info(
+				"Mock Send API 발송 성공. notificationId={}, requestId={}, channel={}, httpStatus={}, elapsedTimeMs={}, externalLatencyMs={}",
+				notification.getId(),
+				notification.getRequestId().value(),
+				channel,
+				HttpStatus.OK.value(),
+				elapsedTimeMs(startedAt),
+				body == null ? null : body.latencyMs()
+			);
 		} catch (ExternalNotificationSendException e) {
 			throw e;
 		} catch (ResourceAccessException e) {

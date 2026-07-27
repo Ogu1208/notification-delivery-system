@@ -55,7 +55,16 @@ public class NotificationDispatchService implements NotificationSender {
 			return;
 		} catch (RuntimeException e) {
 			notification.markFailed(e.getMessage());
-			log.warn("알림 발송 실패. notificationId={}, reason={}", notification.getId(), e.getMessage());
+			log.warn(
+				"알림 발송 예상치 못한 실패. notificationId={}, requestId={}, channel={}, attemptCount={}, exceptionType={}, reason={}",
+				notification.getId(),
+				notification.getRequestId().value(),
+				notification.getChannel(),
+				notification.getAttemptCount(),
+				e.getClass().getSimpleName(),
+				e.getMessage(),
+				e
+			);
 			return;
 		}
 

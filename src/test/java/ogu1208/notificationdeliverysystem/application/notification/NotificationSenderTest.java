@@ -12,6 +12,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationSender;
@@ -31,11 +32,14 @@ class NotificationSenderTest {
 	private final SpyExternalNotificationSender externalSender = new SpyExternalNotificationSender();
 	private final FakeDispatchLockManager dispatchLockManager = new FakeDispatchLockManager();
 	private final NotificationRetryPolicy retryPolicy = new NotificationRetryPolicy(3, List.of(10L, 20L, 30L));
+	private final ApplicationEventPublisher eventPublisher = event -> {
+	};
 	private final NotificationSender notificationSender = new NotificationDispatchService(
 		repository,
 		externalSender,
 		dispatchLockManager,
-		retryPolicy
+		retryPolicy,
+		eventPublisher
 	);
 
 	@Test
@@ -126,7 +130,8 @@ class NotificationSenderTest {
 			repository,
 			externalSender,
 			dispatchLockManager,
-			new NotificationRetryPolicy(3, List.of(60L, 120L, 180L))
+			new NotificationRetryPolicy(3, List.of(60L, 120L, 180L)),
+			eventPublisher
 		);
 		Notification notification = NotificationFixture.createNotification(1L);
 		repository.save(notification);

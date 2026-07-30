@@ -35,3 +35,32 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: notification-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: notification
+      POSTGRES_USER: notification
+      POSTGRES_PASSWORD: notification
+    # pg_stat_statements 확장을 shared_preload_libraries로 로드해야
+    # postgres_exporter가 slow query 지표를 수집할 수 있다.
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.track=all"
+    volumes:
+      - notification-postgres-data:/var/lib/postgresql/data
+      - ./observability/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification -d notification"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  notification-postgres-data:

@@ -1,0 +1,22 @@
+# Traefik v3 정적 설정. Docker provider를 켜서 컨테이너 라벨로 라우팅을 자동 구성한다.
+# 로컬 성능 측정 전용이므로 대시보드는 insecure로 열어둔다.
+
+entryPoints:
+  web:
+    address: ":80"
+
+providers:
+  docker:
+    # 라벨을 명시적으로 붙인 컨테이너만 라우팅에 포함시킨다.
+    # (postgres/prometheus 등 관측 스택 서비스가 우연히 노출되지 않게 하기 위함)
+    exposedByDefault: false
+
+api:
+  dashboard: true
+  # 로컬 전용이라 인증 없이 8082 포트로 대시보드 접속을 허용한다.
+  insecure: true
+
+log:
+  level: INFO
+
+accessLog: {}

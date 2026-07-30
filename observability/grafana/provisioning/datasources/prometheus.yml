@@ -1,0 +1,12 @@
+# Grafana 시작 시 Prometheus datasource 자동 등록.
+# UID를 명시적으로 지정해 대시보드 JSON이 참조할 수 있게 한다.
+
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

@@ -7,6 +7,8 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
@@ -17,21 +19,25 @@ import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
 public class NotificationOutboxPublishService {
 
 	private static final int DEFAULT_BATCH_SIZE = 100;
+	private static final String PUBLISH_METRIC_NAME = "notification.outbox.publish";
 
 	private final NotificationOutboxQueryService outboxQueryService;
 	private final NotificationOutboxModifyService outboxModifyService;
 	private final NotificationMessagePublisher notificationMessagePublisher;
+	private final MeterRegistry meterRegistry;
 	private final long pendingMinAgeMs;
 
 	public NotificationOutboxPublishService(
 		NotificationOutboxQueryService outboxQueryService,
 		NotificationOutboxModifyService outboxModifyService,
 		NotificationMessagePublisher notificationMessagePublisher,
+		MeterRegistry meterRegistry,
 		@Value("${notification.outbox.pending-min-age-ms:3000}") long pendingMinAgeMs
 	) {
 		this.outboxQueryService = outboxQueryService;
 		this.outboxModifyService = outboxModifyService;
 		this.notificationMessagePublisher = notificationMessagePublisher;
+		this.meterRegistry = meterRegistry;
 		this.pendingMinAgeMs = pendingMinAgeMs;
 	}
 
@@ -87,8 +93,23 @@ public class NotificationOutboxPublishService {
 	/*
 	 * Kafka 발행 시도 전 Outbox를 PROCESSING으로 바꾸고, 성공을 확인한 뒤 PUBLISHED로 변경
 	 * Kafka 발행은 DB 트랜잭션 밖 효과라 중복 발행 가능성이 있고, Consumer 멱등 처리로 보완한다.
+	 *
+	 * <p>phase 태그로 immediate/polling을 구분해 Timer로 발행 소요를 관측한다.
+	 * private 메서드라 AOP @Timed가 안 걸리므로 MeterRegistry로 직접 계측.
 	 */
 	private void publish(OutboxEvent outboxEvent, String source) {
+		Timer.Sample sample = Timer.start(meterRegistry);
+		try {
+			publishInternal(outboxEvent, source);
+		} finally {
+			sample.stop(Timer.builder(PUBLISH_METRIC_NAME)
+				.tag("phase", source)
+				.publishPercentileHistogram()
+				.register(meterRegistry));
+		}
+	}
+
+	private void publishInternal(OutboxEvent outboxEvent, String source) {
 		if (!outboxModifyService.markProcessingIfPending(outboxEvent.getId())) {
 			log.info(
 				"Outbox Kafka 발행 건너뜀. source={}, outboxEventId={}, notificationId={}, reason=already-claimed",

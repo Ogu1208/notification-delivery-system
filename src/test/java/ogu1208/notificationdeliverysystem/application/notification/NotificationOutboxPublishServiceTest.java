@@ -18,6 +18,8 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
 import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
@@ -40,10 +42,12 @@ class NotificationOutboxPublishServiceTest {
 	private final NotificationOutboxModifyService outboxModifyService = new NotificationOutboxModifyService(
 		outboxEventRepository
 	);
+	private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
 	private final NotificationOutboxPublishService outboxPublishService = new NotificationOutboxPublishService(
 		outboxQueryService,
 		outboxModifyService,
 		notificationMessagePublisher,
+		meterRegistry,
 		3000
 	);
 

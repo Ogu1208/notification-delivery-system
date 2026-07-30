@@ -181,6 +181,11 @@ class NotificationRegisterTest {
 		) {
 			return Optional.empty();
 		}
+
+		@Override
+		public long countByStatus(OutboxEventStatus status) {
+			return 0;
+		}
 	}
 
 	private static class SpyOutboxEventNotifier implements OutboxEventNotifier {

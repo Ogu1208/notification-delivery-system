@@ -72,4 +72,9 @@ public class OutboxEventPersistenceAdapter implements OutboxEventRepository {
 	) {
 		return outboxEventJpaRepository.findByAggregateTypeAndAggregateIdAndStatus(aggregateType, aggregateId, status);
 	}
+
+	@Override
+	public long countByStatus(OutboxEventStatus status) {
+		return outboxEventJpaRepository.countByStatus(status);
+	}
 }

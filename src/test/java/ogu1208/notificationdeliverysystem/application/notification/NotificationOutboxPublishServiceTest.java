@@ -320,6 +320,13 @@ class NotificationOutboxPublishServiceTest {
 				.filter(outboxEvent -> outboxEvent.getStatus() == status)
 				.findFirst();
 		}
+
+		@Override
+		public long countByStatus(OutboxEventStatus status) {
+			return events.stream()
+				.filter(outboxEvent -> outboxEvent.getStatus() == status)
+				.count();
+		}
 	}
 
 	private static class SpyNotificationMessagePublisher implements NotificationMessagePublisher {

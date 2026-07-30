@@ -27,4 +27,6 @@ public interface OutboxEventRepository {
 		Long aggregateId,
 		OutboxEventStatus status
 	);
+
+	long countByStatus(OutboxEventStatus status);
 }

@@ -52,4 +52,6 @@ interface OutboxEventJpaRepository extends Repository<OutboxEvent, Long> {
 		Long aggregateId,
 		OutboxEventStatus status
 	);
+
+	long countByStatus(OutboxEventStatus status);
 }

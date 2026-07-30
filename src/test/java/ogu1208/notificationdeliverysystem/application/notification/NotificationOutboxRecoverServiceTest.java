@@ -104,5 +104,12 @@ class NotificationOutboxRecoverServiceTest {
 		) {
 			return Optional.empty();
 		}
+
+		@Override
+		public long countByStatus(OutboxEventStatus status) {
+			return events.stream()
+				.filter(outboxEvent -> outboxEvent.getStatus() == status)
+				.count();
+		}
 	}
 }

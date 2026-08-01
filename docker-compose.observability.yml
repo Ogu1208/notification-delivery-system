@@ -18,7 +18,7 @@ services:
       SPRING_PROFILES_ACTIVE: perf
       NOTIFICATION_ROLE_API_ENABLED: "true"
       NOTIFICATION_ROLE_WORKER_ENABLED: "false"
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification
       SPRING_DATA_REDIS_HOST: redis
       NOTIFICATION_MOCK_SEND_BASE_URL: http://host.docker.internal:8081
@@ -49,7 +49,7 @@ services:
       SPRING_PROFILES_ACTIVE: perf
       NOTIFICATION_ROLE_API_ENABLED: "false"
       NOTIFICATION_ROLE_WORKER_ENABLED: "true"
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification
       SPRING_DATA_REDIS_HOST: redis
       NOTIFICATION_MOCK_SEND_BASE_URL: http://host.docker.internal:8081
@@ -97,7 +97,7 @@ services:
   kafka-exporter:
     image: danielqsj/kafka-exporter:v1.9.0
     command:
-      - "--kafka.server=kafka:9092"
+      - "--kafka.server=kafka:29092"
     depends_on:
       kafka: { condition: service_healthy }
     deploy:

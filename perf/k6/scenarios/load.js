@@ -17,8 +17,10 @@ import { check } from 'k6';
 import { BASE_URL, summaryTrendStats } from '../lib/config.js';
 import { buildPayload } from '../lib/payload.js';
 
-// 워밍업이 끝나는 시각(초) — 이후 요청은 steady 태그로 분류.
-const WARMUP_SECONDS = 60;
+// 시나리오 구간 경계(초). WARMUP → STEADY → RAMPDOWN 세 phase로 태깅한다.
+// steady 구간 데이터만 threshold와 문서화에 사용.
+const WARMUP_END = 60;                   // 워밍업 종료 = steady 시작
+const STEADY_END = WARMUP_END + 5 * 60;  // steady 종료 = 램프다운 시작 (360s)
 
 export const options = {
     scenarios: {
@@ -49,9 +51,14 @@ export function setup() {
 }
 
 export default function (data) {
-    // 시나리오 시작 후 경과 초. WARMUP_SECONDS 전까지는 warmup 태그.
+    // 시나리오 시작 후 경과 초로 phase 판정.
+    //   0     ~ WARMUP_END : warmup (측정 제외)
+    //   WARMUP_END ~ STEADY_END : steady (측정 대상)
+    //   STEADY_END ~ 끝 : rampdown (측정 제외 — 부하가 감소하며 낙관적 편향)
     const elapsedSec = (Date.now() - data.startAtMs) / 1000;
-    const phase = elapsedSec < WARMUP_SECONDS ? 'warmup' : 'steady';
+    const phase = elapsedSec < WARMUP_END ? 'warmup'
+        : elapsedSec >= STEADY_END ? 'rampdown'
+        : 'steady';
 
     const payload = buildPayload(__ITER);
     const res = http.post(`${BASE_URL}/notifications`, JSON.stringify(payload), {

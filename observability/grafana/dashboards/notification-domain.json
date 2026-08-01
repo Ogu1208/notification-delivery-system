@@ -11,7 +11,7 @@
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
       "id": 1,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum by (to) (rate(notification_status_transitions_total[1m]))", "legendFormat": "{{to}}", "refId": "A"}
       ],
@@ -23,7 +23,7 @@
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
       "id": 2,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum by (channel) (rate(notification_status_transitions_total{to=\"RETRY_WAIT\"}[1m]))", "legendFormat": "{{channel}}", "refId": "A"}
       ],
@@ -71,7 +71,7 @@
       "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
       "id": 6,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.95, sum by (le, channel) (rate(notification_send_seconds_bucket[1m])))", "legendFormat": "p95 {{channel}}", "refId": "A"},
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.99, sum by (le, channel) (rate(notification_send_seconds_bucket[1m])))", "legendFormat": "p99 {{channel}}", "refId": "B"}
@@ -84,7 +84,7 @@
       "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
       "id": 7,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.95, sum by (le, phase) (rate(notification_outbox_publish_seconds_bucket[1m])))", "legendFormat": "p95 {{phase}}", "refId": "A"}
       ],

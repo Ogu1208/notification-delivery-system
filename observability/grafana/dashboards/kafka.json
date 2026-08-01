@@ -11,7 +11,7 @@
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
       "id": 1,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum by (consumergroup, topic) (kafka_consumergroup_lag)", "legendFormat": "{{consumergroup}} / {{topic}}", "refId": "A"}
       ],
@@ -23,7 +23,7 @@
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
       "id": 2,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "kafka_consumergroup_lag{consumergroup=\"notification-worker\"}", "legendFormat": "partition {{partition}}", "refId": "A"}
       ],
@@ -35,7 +35,7 @@
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
       "id": 3,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum by (topic) (rate(kafka_topic_partition_current_offset[1m]))", "legendFormat": "{{topic}}", "refId": "A"}
       ],
@@ -47,7 +47,7 @@
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
       "id": 4,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "rate(kafka_topic_partition_current_offset{topic=\"single-notification-send\"}[1m])", "legendFormat": "partition {{partition}}", "refId": "A"}
       ],
@@ -59,7 +59,7 @@
       "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
       "id": 5,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum(rate(kafka_producer_record_send_total[1m]))", "legendFormat": "producer records/s", "refId": "A"},
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum(rate(kafka_consumer_records_consumed_total[1m]))", "legendFormat": "consumer records/s", "refId": "B"}
@@ -72,7 +72,7 @@
       "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
       "id": 6,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "avg(kafka_producer_request_latency_avg)", "legendFormat": "producer request latency avg", "refId": "A"},
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "avg(kafka_consumer_fetch_latency_avg)", "legendFormat": "consumer fetch latency avg", "refId": "B"}

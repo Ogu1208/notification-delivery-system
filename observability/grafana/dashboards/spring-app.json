@@ -23,7 +23,7 @@
       "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
       "id": 2,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/notifications\"}[1m])))", "legendFormat": "p50", "refId": "A"},
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/notifications\"}[1m])))", "legendFormat": "p95", "refId": "B"},
@@ -49,7 +49,7 @@
       "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}, "overrides": []},
       "gridPos": {"h": 8, "w": 8, "x": 8, "y": 8},
       "id": 4,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "process_cpu_usage", "legendFormat": "{{instance}}", "refId": "A"}
       ],
@@ -61,7 +61,7 @@
       "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
       "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8},
       "id": 5,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum by (instance) (jvm_memory_used_bytes{area=\"heap\"})", "legendFormat": "heap {{instance}}", "refId": "A"}
       ],
@@ -73,7 +73,7 @@
       "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
       "id": 6,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "rate(jvm_gc_pause_seconds_sum[1m])", "legendFormat": "pause sum/s {{instance}}", "refId": "A"},
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "jvm_gc_pause_seconds_max", "legendFormat": "pause max {{instance}}", "refId": "B"}
@@ -86,7 +86,7 @@
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
       "id": 7,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum by (state) (jvm_threads_states_threads)", "legendFormat": "{{state}}", "refId": "A"}
       ],
@@ -98,7 +98,7 @@
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
       "id": 8,
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "hikaricp_connections_active", "legendFormat": "active {{instance}}", "refId": "A"},
         {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "hikaricp_connections_pending", "legendFormat": "pending {{instance}}", "refId": "B"},
@@ -114,9 +114,11 @@
       "id": 9,
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single"}},
       "targets": [
-        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.95, sum by (le) (rate(hikaricp_connections_acquire_seconds_bucket[1m])))", "legendFormat": "acquire p95", "refId": "A"}
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.95, sum by (le, instance) (rate(hikaricp_connections_acquire_seconds_bucket[1m])))", "legendFormat": "p95 {{instance}}", "refId": "A"},
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.99, sum by (le, instance) (rate(hikaricp_connections_acquire_seconds_bucket[1m])))", "legendFormat": "p99 {{instance}}", "refId": "B"},
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "hikaricp_connections_acquire_seconds_max", "legendFormat": "max {{instance}}", "refId": "C"}
       ],
-      "title": "Hikari connection acquire time p95",
+      "title": "Hikari connection acquire time (p95/p99/max)",
       "type": "timeseries"
     }
   ],

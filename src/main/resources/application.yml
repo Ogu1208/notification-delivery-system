@@ -62,9 +62,12 @@ management:
     distribution:
       # p95/p99 계산을 위해 histogram 활성화.
       # SLO 버킷은 API 응답 SLA 후보로 잡은 값. 필요 시 조정.
+      # 여러 인스턴스 통합 percentile을 정확히 얻으려면 summary/timer가 아닌
+      # histogram이 필수. Hikari acquire도 pool 압박 관측용으로 켠다.
       percentiles-histogram:
         http.server.requests: true
         notification.send: true
         notification.outbox.publish: true
+        hikaricp.connections.acquire: true
       slo:
         http.server.requests: 50ms, 100ms, 200ms, 500ms, 1s, 2s

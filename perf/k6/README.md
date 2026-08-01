@@ -12,7 +12,7 @@
    ```bash
    cd /Users/ogu/study/과제전형\ 5기/알림발송시스템/sendmock
    ./gradlew bootRun
-   # 원하는 모드로: STABLE | RANDOM
+   # 원하는 모드로: ALWAYS_SUCCESS | RANDOM
    ```
 
 3. k6 설치:
@@ -48,11 +48,11 @@ psql -h localhost -U notification -d notification -f scripts/perf/reset.sql
 
 | # | 시나리오 | Mock 모드 | 인스턴스 | 목적 |
 |---|---|---|---|---|
-| 1 | smoke | STABLE | api=1, worker=1 | 파이프라인 정상성 |
-| 2 | load | STABLE | api=1, worker=1 | 순수 파이프라인 상한 |
+| 1 | smoke | ALWAYS_SUCCESS | api=1, worker=1 | 파이프라인 정상성 |
+| 2 | load | ALWAYS_SUCCESS | api=1, worker=1 | 순수 파이프라인 상한 |
 | 3 | load | RANDOM | api=1, worker=1 | 재시도 부담 포함 처리량 |
-| 4 | stress | STABLE | api=1, worker=1 | 붕괴 지점 |
+| 4 | stress | ALWAYS_SUCCESS | api=1, worker=1 | 붕괴 지점 |
 | 5 | stress | RANDOM | api=1, worker=1 | 재시도 부하 겹침 시 붕괴 |
 | 6 | spike | RANDOM | api=1, worker=1 | 회복력 |
 
-STABLE/RANDOM 대비는 최소 (2 vs 3), (4 vs 5) 쌍은 남겨야 재시도 부담을 정량화할 수 있다.
+ALWAYS_SUCCESS/RANDOM 대비는 최소 (2 vs 3), (4 vs 5) 쌍은 남겨야 재시도 부담을 정량화할 수 있다.

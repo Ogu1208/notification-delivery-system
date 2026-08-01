@@ -59,6 +59,10 @@ management:
     tags:
       application: ${spring.application.name}
       profile: ${spring.profiles.active:local}
+      # 컨테이너별 역할 라벨. 같은 이미지가 app-api/app-worker로 뜨는데
+      # metric에 role 라벨을 붙여 Grafana에서 구분 가능하게 한다.
+      # --scale app-worker=3 시에도 role=worker 인스턴스들이 자동 그룹핑됨.
+      role: ${APP_ROLE:unknown}
     distribution:
       # p95/p99 계산을 위해 histogram 활성화.
       # SLO 버킷은 API 응답 SLA 후보로 잡은 값. 필요 시 조정.

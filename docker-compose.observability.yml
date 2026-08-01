@@ -16,6 +16,7 @@ services:
       # Spring Boot relaxed binding: 대시(-) 대신 언더스코어 사용.
       # 예: NOTIFICATION_ROLE_API_ENABLED -> notification.role.api-enabled
       SPRING_PROFILES_ACTIVE: perf
+      APP_ROLE: api                             # Micrometer role 태그
       NOTIFICATION_ROLE_API_ENABLED: "true"
       NOTIFICATION_ROLE_WORKER_ENABLED: "false"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -47,6 +48,7 @@ services:
     build: .
     environment:
       SPRING_PROFILES_ACTIVE: perf
+      APP_ROLE: worker                          # Micrometer role 태그
       NOTIFICATION_ROLE_API_ENABLED: "false"
       NOTIFICATION_ROLE_WORKER_ENABLED: "true"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092

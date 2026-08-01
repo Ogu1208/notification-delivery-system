@@ -7,6 +7,11 @@
 
 set -euo pipefail
 
+# 프로젝트 루트로 이동 (스크립트 위치 기준: scripts/perf/ -> ../../).
+# 어디서 실행하든(IntelliJ, 터미널, cron 등) compose.yaml 상대경로가 맞도록 보장.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR/../.."
+
 COMPOSE_ARGS="-f compose.yaml -f docker-compose.observability.yml"
 
 echo "==> [1/7] Docker Compose 서비스 상태"

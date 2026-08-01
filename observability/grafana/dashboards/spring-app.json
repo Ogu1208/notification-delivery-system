@@ -51,7 +51,7 @@
       "id": 4,
       "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
-        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "process_cpu_usage", "legendFormat": "{{role}}", "refId": "A"}
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "process_cpu_usage{role!=\"\"}", "legendFormat": "{{role}}", "refId": "A"}
       ],
       "title": "Process CPU 사용률",
       "type": "timeseries"
@@ -63,7 +63,7 @@
       "id": 5,
       "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
-        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum by (instance) (jvm_memory_used_bytes{area=\"heap\"})", "legendFormat": "heap {{role}}", "refId": "A"}
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum by (role) (jvm_memory_used_bytes{area=\"heap\", role!=\"\"})", "legendFormat": "heap {{role}}", "refId": "A"}
       ],
       "title": "JVM Heap 사용량",
       "type": "timeseries"
@@ -75,8 +75,8 @@
       "id": 6,
       "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
-        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "rate(jvm_gc_pause_seconds_sum[1m])", "legendFormat": "pause sum/s {{role}}", "refId": "A"},
-        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "jvm_gc_pause_seconds_max", "legendFormat": "pause max {{role}}", "refId": "B"}
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum by (role) (rate(jvm_gc_pause_seconds_sum{role!=\"\"}[1m]))", "legendFormat": "pause sum/s {{role}}", "refId": "A"},
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "max by (role) (jvm_gc_pause_seconds_max{role!=\"\"})", "legendFormat": "pause max {{role}}", "refId": "B"}
       ],
       "title": "GC pause",
       "type": "timeseries"
@@ -88,7 +88,7 @@
       "id": 7,
       "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
-        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum by (state) (jvm_threads_states_threads)", "legendFormat": "{{state}}", "refId": "A"}
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum by (role, state) (jvm_threads_states_threads{role!=\"\"})", "legendFormat": "{{role}} {{state}}", "refId": "A"}
       ],
       "title": "JVM Threads (state별)",
       "type": "timeseries"
@@ -100,9 +100,9 @@
       "id": 8,
       "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
       "targets": [
-        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "hikaricp_connections_active", "legendFormat": "active {{role}}", "refId": "A"},
-        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "hikaricp_connections_pending", "legendFormat": "pending {{role}}", "refId": "B"},
-        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "hikaricp_connections_idle", "legendFormat": "idle {{role}}", "refId": "C"}
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "hikaricp_connections_active{role!=\"\"}", "legendFormat": "active {{role}}", "refId": "A"},
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "hikaricp_connections_pending{role!=\"\"}", "legendFormat": "pending {{role}}", "refId": "B"},
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "hikaricp_connections_idle{role!=\"\"}", "legendFormat": "idle {{role}}", "refId": "C"}
       ],
       "title": "Hikari connection pool (active/pending/idle)",
       "type": "timeseries"
@@ -114,9 +114,9 @@
       "id": 9,
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single"}},
       "targets": [
-        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.95, sum by (le, instance) (rate(hikaricp_connections_acquire_seconds_bucket[1m])))", "legendFormat": "p95 {{role}}", "refId": "A"},
-        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.99, sum by (le, instance) (rate(hikaricp_connections_acquire_seconds_bucket[1m])))", "legendFormat": "p99 {{role}}", "refId": "B"},
-        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "hikaricp_connections_acquire_seconds_max", "legendFormat": "max {{role}}", "refId": "C"}
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.95, sum by (le, role) (rate(hikaricp_connections_acquire_seconds_bucket{role!=\"\"}[1m])))", "legendFormat": "p95 {{role}}", "refId": "A"},
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "histogram_quantile(0.99, sum by (le, role) (rate(hikaricp_connections_acquire_seconds_bucket{role!=\"\"}[1m])))", "legendFormat": "p99 {{role}}", "refId": "B"},
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "max by (role) (hikaricp_connections_acquire_seconds_max{role!=\"\"})", "legendFormat": "max {{role}}", "refId": "C"}
       ],
       "title": "Hikari connection acquire time (p95/p99/max)",
       "type": "timeseries"

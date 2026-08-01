@@ -45,8 +45,9 @@ echo "OK (전부 UP)"
 
 echo
 echo "==> [7/7] Grafana 접속"
-curl -sf http://localhost:3000/api/health | grep -q '"database":"ok"' \
-  || (echo "FAIL: Grafana 접속 실패. 컨테이너 로그: docker compose logs grafana"; exit 1)
+# Grafana /api/health 응답: {"database": "ok", ...} (콜론 뒤 공백 있음)
+curl -sf http://localhost:3000/api/health | grep -qE '"database":\s*"ok"' \
+  || (echo "FAIL: Grafana 접속 실패. 컨테이너 로그: docker compose $COMPOSE_ARGS logs grafana"; exit 1)
 echo "OK"
 
 echo

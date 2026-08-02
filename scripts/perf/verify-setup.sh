@@ -33,8 +33,10 @@ docker compose exec -T redis redis-cli PING \
   || (echo "FAIL: Redis 접속 실패. 컨테이너 로그: docker compose logs redis"; exit 1)
 
 echo
-echo "==> [5/7] 앱 헬스체크 (Traefik 경유)"
-curl -sf http://localhost:8080/actuator/health | grep -q '"status":"UP"' \
+echo "==> [5/7] 앱 헬스체크 (management 포트 9091 직접)"
+# Actuator가 management.server.port=9091로 분리되어 있으므로 9091로 접근.
+# 비즈니스 API는 Traefik(8080) 경유, actuator는 별도 포트로 격리.
+curl -sf http://localhost:9091/actuator/health | grep -q '"status":"UP"' \
   || (echo "FAIL: 앱 헬스체크 실패. Traefik 대시보드: http://localhost:8082"; exit 1)
 echo "OK"
 

@@ -15,6 +15,11 @@ spring:
         # Consumer 크래시 감지 시간. Kafka 3.0+ 기본값을 명시적으로 유지한다.
         # notification.dispatch-lock.ttl-ms는 이 값보다 여유 있게 설정해 재전달 창을 락으로 덮는다.
         session.timeout.ms: 45000
+    listener:
+      # Consumer 스레드 개수. partition 수와 균형을 맞춰야 한다.
+      # partition보다 크면 초과 스레드는 idle. partition과 같거나 작아야 유효.
+      # 현재 topic partition = 6 이므로 6으로 설정.
+      concurrency: 6
 
 notification:
   kafka:
@@ -48,6 +53,11 @@ notification:
     worker-enabled: false
 
 management:
+  # Actuator를 별도 포트로 분리해 관측 계층을 비즈니스 API와 격리.
+  # 8080 Tomcat pool이 소진돼도 9091은 독립적으로 응답 가능.
+  # (앱 마비 상황에서도 지표 스크레이핑이 지속되어 진단 가능)
+  server:
+    port: 9091
   endpoints:
     web:
       exposure:

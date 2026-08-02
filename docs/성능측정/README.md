@@ -16,8 +16,8 @@
 |---|---|
 | [방법론.md](방법론.md) | 측정 환경, 자원 배분, 관측 개념, 시나리오 정의, 실행 절차, 트러블슈팅 (변하지 않는 배경) |
 | [실험-01-baseline.md](실험-01-baseline.md) | Iteration 1: 기본 설정(partition=1, concurrency=1)에서의 측정. 임계 초과 관측 + 병목 분석 |
-| 실험-02-튜닝v1.md | Iteration 2: partition/concurrency 개선 후 재측정. 개선 효과 정량화 |
-| (이후) 실험-03-... | 추가 개선 반복 |
+| [실험-02-튜닝v1.md](실험-02-튜닝v1.md) | Iteration 2: A+B+E(partition/concurrency/관측 격리) 적용 후 재측정. API 안정화, worker 처리량 부분 개선 |
+| (이후) 실험-03-... | 추가 개선 반복 (D: async listener, C: non-blocking mock 등) |
 
 각 실험 문서는 **self-contained**: 그 시점 시스템 상태 + 결과 + 병목 + 다음 개선안을 하나 안에.
 
@@ -25,8 +25,8 @@
 
 | # | 상태 | 주요 발견 | Load(AS) p95 | Load(RANDOM) p95 | 실패율 | 링크 |
 |---|---|---|---|---|---|---|
-| 01 | partition=1, concurrency=1 | RANDOM에서 임계 초과, cascading failure로 관측 계층까지 영향 | 11.7ms | **59.99s** (timeout) | 95.61% | [실험-01](실험-01-baseline.md) |
-| 02 | partition=6, concurrency=6 | (진행 예정) | | | | (예정) |
+| 01 | partition=1, concurrency=1, actuator=8080 공유 | RANDOM에서 임계 초과, cascading failure로 관측 계층까지 영향 | 11.7ms | **59.99s** (timeout) | 95.61% | [실험-01](실험-01-baseline.md) |
+| 02 | partition=6, concurrency=6, actuator=9091 분리 | API 완전 안정 (5,250배 개선). Worker 처리량 6배 향상됐으나 RANDOM 100 TPS 완전 처리엔 부족 (초당 8.6건) | (미측정) | **11.42ms** | 0.00% | [실험-02](실험-02-튜닝v1.md) |
 
 ## 스크린샷
 
@@ -44,9 +44,10 @@
 
 ## 아직 진행하지 않은 것
 
-- Load RANDOM 개선 후 재측정 (실험-02)
-- Stress (baseline / tuned)
-- Spike (baseline / tuned)
+- 실험-03: D (Outbox async listener) 적용 후 재측정
+- 실험-04 (선택): C (non-blocking mock client, Reactive 전환) 적용 후 재측정
+- Stress (tuned 상태에서 붕괴 지점 확인, management 포트 격리 효과 검증)
+- Spike (회복력)
 - 멀티 워커 스케일 실험 (`--scale app-worker=3`)
 - Soak (장기 누적)
 

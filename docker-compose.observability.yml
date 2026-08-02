@@ -12,6 +12,11 @@ services:
   # --scale app-api=N 으로 다중 인스턴스로 확장 가능.
   app-api:
     build: .
+    ports:
+      # 9091: management(actuator) 포트. verify-setup.sh 헬스체크와 디버깅용.
+      # 비즈니스 API(8080)와 격리되어 앱 마비 시에도 응답 가능.
+      # --scale=N 확장 시 첫 컨테이너만 host에 바인딩 (내부 통신은 문제 없음).
+      - "9091:9091"
     environment:
       # Spring Boot relaxed binding: 대시(-) 대신 언더스코어 사용.
       # 예: NOTIFICATION_ROLE_API_ENABLED -> notification.role.api-enabled

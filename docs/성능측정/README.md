@@ -5,7 +5,7 @@
 ## 목표
 
 수치 하나가 아니라 **병목 위치를 찾고 해석하고 개선하는 것**이 목적:
-1. 병목 위치 파악 — API / Kafka / Consumer / Mock API / DB / Redis / JVM 중 어디가 먼저 무너지는가
+1. 병목 위치 파악 — API / Kafka / Consumer / Mock API / DB / Redis / JVM 중 어디가 먼저 임계에 도달하는가
 2. TPS 한계 관찰 — 안정 구간 처리량과 붕괴 지점
 3. 운영 관점 지표 대시보드 정립 — 실제 서비스에서 무엇을 봐야 하는지
 4. **관측 → 병목 발견 → 개선 → 재측정**의 실험 사이클 실행
@@ -15,7 +15,7 @@
 | 파일 | 내용 |
 |---|---|
 | [방법론.md](방법론.md) | 측정 환경, 자원 배분, 관측 개념, 시나리오 정의, 실행 절차, 트러블슈팅 (변하지 않는 배경) |
-| [실험-01-baseline.md](실험-01-baseline.md) | Iteration 1: 기본 설정(partition=1, concurrency=1)에서의 측정. 붕괴 발견 + 병목 분석 |
+| [실험-01-baseline.md](실험-01-baseline.md) | Iteration 1: 기본 설정(partition=1, concurrency=1)에서의 측정. 임계 초과 관측 + 병목 분석 |
 | 실험-02-튜닝v1.md | Iteration 2: partition/concurrency 개선 후 재측정. 개선 효과 정량화 |
 | (이후) 실험-03-... | 추가 개선 반복 |
 
@@ -25,7 +25,7 @@
 
 | # | 상태 | 주요 발견 | Load(AS) p95 | Load(RANDOM) p95 | 실패율 | 링크 |
 |---|---|---|---|---|---|---|
-| 01 | partition=1, concurrency=1 | RANDOM에서 완전 붕괴, cascading failure로 관측까지 마비 | 11.7ms | **59.99s** (timeout) | 95.61% | [실험-01](실험-01-baseline.md) |
+| 01 | partition=1, concurrency=1 | RANDOM에서 임계 초과, cascading failure로 관측 계층까지 영향 | 11.7ms | **59.99s** (timeout) | 95.61% | [실험-01](실험-01-baseline.md) |
 | 02 | partition=6, concurrency=6 | (진행 예정) | | | | (예정) |
 
 ## 스크린샷

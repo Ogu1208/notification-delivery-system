@@ -47,8 +47,8 @@
 
 ## 아직 진행하지 않은 것
 
-- **실험-04**: D (Outbox async listener) 적용 후 재측정 (진행 예정)
-- **실험-05 후보**: HttpClient 5 재도전 (원인 규명 및 옵션 튜닝 후)
+- **실험-04**: HttpClient 5 옵션 완비 후 재도전 (원인 규명 우선, 진행 예정)
+- **실험-05**: D (Outbox async listener) 적용 후 재측정
 - 실험-06 후보: C (non-blocking mock client, Reactive 전환)
 - Stress (tuned 상태에서 붕괴 지점 확인, management 포트 격리 효과 검증)
 - Spike (회복력)

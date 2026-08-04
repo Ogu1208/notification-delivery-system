@@ -201,21 +201,13 @@ Cascading 흐름:
 
 ## 4. 원인 격리 실험
 
-HttpClient 5 자체가 원인인지, 콜드 시작이나 다른 요인이 원인인지 확인하기 위한 격리 실험.
+HttpClient 5 자체가 원인인지, 콜드 시작이나 다른 요인이 원인인지, 옵션 부족이 원인인지 순차 검증하기 위한 격리 실험.
 
-### 실험 설계
+### 4.1 격리 A — HttpClient 5 롤백 (원본 상태 재현)
 
-| 실험 | HttpClient 5 | 컨테이너 상태 | 예상 |
-|---|---|---|---|
-| 실험-02 | 미적용 | warm | 안정 (실제 안정) |
-| 실험-03 2차 | 적용 | cold | 붕괴 (실제 붕괴) |
-| 격리 A | 미적용 (롤백) | cold | HC5 원인이면 안정, 콜드 원인이면 붕괴 |
+`git revert`로 HttpClient 5 변경분을 되돌린 후, 컨테이너 완전 down/up (cold), 6 파티션 topic 재생성, DB TRUNCATE, sendmock RANDOM 유지 상태에서 동일 부하 시나리오 실행.
 
-### 격리 실험 A 결과
-
-`git revert`로 HttpClient 5 변경분 되돌린 후, 컨테이너 완전 down/up (cold), 6 파티션 topic 재생성, DB TRUNCATE, sendmock RANDOM 유지 상태에서 동일 부하 시나리오 실행.
-
-| 지표 | 실험-02 (warm) | 실험-03 2차 (HC5, cold) | 격리 A (롤백, cold) |
+| 지표 | 실험-02 (warm) | 실험-03 2차 (HC5 기본, cold) | 격리 A (Simple 롤백, cold) |
 |---|---|---|---|
 | p95 응답시간 | 11.42 ms | 60 s | **11.97 ms** |
 | p99 응답시간 | 25.23 ms | 60 s | **33.59 ms** |
@@ -226,9 +218,115 @@ HttpClient 5 자체가 원인인지, 콜드 시작이나 다른 요인이 원인
 
 콜드 상태에서 롤백만으로 실험-02의 안정성이 완전히 재현됨. **HttpClient 5 도입이 붕괴의 실질적 직접 원인 확정**. 콜드 시작 자체는 우리 시스템 안정성에 유의미한 영향 없음.
 
+### 4.2 격리 B — HttpClient 5 옵션 완비 재도전
+
+격리 A로 HC5가 직접 원인임을 확인했으나, HC5 자체는 표준 대응이므로 우리 구현에서 어떤 옵션이 빠진 것이 문제인지 검증. 원래 코드에서 빠진 옵션 6개를 모두 반영해 재실험.
+
+**추가한 옵션**:
+- `evictIdleConnections(30s)` — idle 커넥션 자동 정리 스레드
+- `evictExpiredConnections()` — 만료 커넥션 자동 정리
+- `ConnectionConfig.setValidateAfterInactivity(10s)` — 재사용 전 유효성 검증
+- `ConnectionConfig.setTimeToLive(10min)` — 커넥션 최대 재사용 시간
+- `SocketConfig.setSoKeepAlive(true)` — TCP keepalive 활성화
+- `SocketConfig.setSoTimeout(readTimeoutMs)` (RequestConfig.responseTimeout과 중복 제거)
+
+같은 콜드 조건에서 재실험 결과:
+
+| 지표 | 격리 A (Simple, cold) | HC5 v1 (기본, cold) | 격리 B (HC5 완비, cold) |
+|---|---|---|---|
+| p95 응답시간 | **11.97 ms** | 60 s | 57.79 s |
+| 실패율 | **0.00%** | 95.72% | 10.10% |
+| 처리 요청 | 30,001 | 2,663 | 16,133 |
+| 실제 TPS | 100 | 6.3 | 38.4 |
+| app-api target 상태 | UP 유지 | 부하 30초 후 DOWN | 2분경부터 DOWN |
+
+**부분 개선 관측**: HC5 옵션 완비로 붕괴 시점이 늦어지고 실패율도 95% → 10%로 크게 완화. 그러나 여전히 Simple 대비 크게 뒤처지고, 결국 app-api가 무너짐. **HC5의 stale connection 이슈(후보 Y)는 유효한 부분 원인이었지만, 근본 원인은 다른 곳에 남아있음**.
+
+### 4.3 관측된 패턴
+
+- Simple(격리 A): app-api UP 유지, 안정 완주
+- HC5 v1(기본): 부하 시작 30초 만에 app-api DOWN
+- HC5 v2(옵션 완비): 부하 시작 2분경 app-api DOWN
+
+옵션 완비의 개선 효과는 명확하나 근본 해결이 아님. 남은 후보는 **HC5 bean이 app-api에도 초기화되는 것 자체의 영향(후보 X)**.
+
 ---
 
-## 5. 롤백 결정과 원인 규명 계획
+## 5. 관찰의 심층 분석
+
+격리 B 결과를 바탕으로 왜 HC5가 하필 app-api만 무너뜨리는지 정리.
+
+### 5.1 Bean "초기화"의 범위 구분
+
+두 개를 나눠서 봐야 함.
+
+**A. 한 번만 발생하는 초기화 (bean 생성 시)**
+- HttpClient 5 pool 객체 생성, 스레드 몇 개 생성
+- 앱 시작 후 1초 안에 끝남
+- app-api든 worker든 다 한 번씩 하고 끝
+- 이 자체가 부하 시점 성능에 영향 주진 않음 (이미 다 끝났으므로)
+
+**B. 지속되는 백그라운드 활동 (bean이 존재하는 동안 계속)**
+- Idle connection 정리 스레드 (설정에 따라 주기적으로 iterate)
+- Pool 유지 관련 lock/synchronization
+- HttpClient 관련 metric 갱신
+- 이건 bean이 존재하는 한 계속 CPU/메모리 소모 (소량이지만)
+
+app-api가 무너지는 원인은 A가 아니라 B에 가까움. 소소한 지속 활동이 이미 tight한 app-api의 여유를 갉아먹는 것.
+
+### 5.2 왜 app-api만 무너지고 worker는 멀쩡한가
+
+**결정적 차이는 부하 형태의 차이 (동기 vs 비동기)**.
+
+**시스템 구조 재확인**:
+```
+[k6] ──HTTP──▶ [app-api] ──메시지 저장──▶ [Kafka] ──메시지 소비──▶ [app-worker] ──HTTP──▶ [sendmock]
+   ↑ 동기 강제                              ↑ 완충 지대                       ↑ 비동기, 자율
+```
+
+**app-worker의 상황**:
+- Kafka에 메시지가 저장되어 있음 (수만 개까지 쌓여도 됨)
+- Worker는 **자기가 처리할 수 있는 만큼만** Kafka에서 poll
+- 워커가 초당 8개만 처리 가능하면 초당 8개만 처리, 나머지는 Kafka에 계속 남아있음
+- **워커는 "쫓기지" 않음** — lag이 쌓일 뿐 워커 자체는 여유
+- 6개 Consumer 스레드가 대부분 시간 mock 응답 대기(block) 중
+- CPU/메모리 여유 큼 (Worker CPU 관측치 18~19%)
+- HC5 백그라운드 활동이 소모하는 자원이 이 여유에서 소화됨
+
+**app-api의 상황**:
+- k6가 **초당 100건씩 강제 유입** (rate 기반 부하)
+- 각 요청은 202 응답을 즉시 받아야 함 (k6가 대기)
+- API가 100/s 못 처리하면 → 요청 쌓임 → 대기 → 결국 timeout → cascade
+- CPU가 훨씬 tight (요청 처리 계속 회전)
+- 소소한 CPU 경합, GC pause 몇 ms, producer.send() 지연 몇 백 ms 같은 것이 누적되면
+- Outbox listener에서 Kafka publish → producer buffer 대기 → Hikari 커넥션 #2 오래 잡음 → pool 소진
+
+즉 총량은 같아도 시간축의 강제성이 다름. **worker는 "느리면 lag이 쌓일 뿐 죽지 않음". app-api는 "느리면 요청이 쌓이며 timeout → cascade → 죽음"**.
+
+### 5.3 Cascading 경로 유무
+
+| 항목 | app-api | app-worker |
+|---|---|---|
+| 부하 유입 | k6가 100/s 강제 | Kafka에서 워커가 poll (자율) |
+| 응답 강제성 | 즉시 (client 대기) | 없음 (async) |
+| 처리 못 하면 | 요청 쌓임 → timeout → cascade | Kafka lag 쌓임, 워커는 무관 |
+| Cascading 경로 | Hikari 소진 → 30s timeout → 눈덩이 | 없음 (자기 페이스로 처리) |
+| HC5 소소한 영향 | 아슬아슬한 상태를 tip over | 여유 있어서 흡수 |
+
+**cascading 경로가 있는 계층에서만 임계 초과가 발생**. app-worker에는 이런 경로 자체가 없어서 무너지지 않음.
+
+### 5.4 요약
+
+1. HC5 자체가 무거운 게 아님. 백그라운드 활동은 소량
+2. 이미 아슬아슬한 상태의 app-api에서 미묘한 경합이 tip over 지점을 넘김
+3. 한 번 Hikari pool exhaustion 시작되면 30초 timeout이라 self-reinforce (회복 못함)
+4. app-worker는 부하 형태 자체가 여유 있어서 같은 HC5 존재를 흡수 가능
+
+이 분석이 맞다면 **HC5 bean을 app-api에서 아예 생성 안 하도록 격리**하면 문제가 해결되어야 함. 이것이 격리 실험 C.
+
+---
+
+## 6. 롤백 결정과 원인 규명 계획
 
 ### 즉시 결정
 
@@ -281,15 +379,17 @@ HttpClient 5 자체가 원인인지, 콜드 시작이나 다른 요인이 원인
 
 ## 7. 다음 실험
 
-**실험-04 (원인 규명 우선, 옵션 1)**: HC5 옵션 완비 후 재실험
-- 위 5. 규명 실험 계획의 항목 반영
-- Connection eviction, timeout 정리, PoolStats 관측 등 개선
-- 격리 실험으로 각 옵션 효과 검증
-- 안정화 확인되면 HC5 유지, 여전히 문제면 후보 C(Bean 초기화 영향) 조사
+**격리 C — HC5 bean scope 격리 (진행 예정)**
+- MockSendApiClient에 `@ConditionalOnProperty("notification.role.worker-enabled", havingValue = "true")` 추가
+- app-worker 컨테이너에서만 bean 생성 (HC5 초기화), app-api는 bean 자체 없음
+- 같은 콜드 조건에서 부하 재실행
+- 안정화되면 후보 X(bean 존재 자체가 app-api에 영향) 확정 → HC5 워커 전용으로 유지
+- 여전히 무너지면 후보 X 배제. Kafka producer 특이점 등 다른 방향 조사 필요
 
-**실험-05 (D 적용)**: sync outbox listener 근본 병목 제거
+**실험-05 (예정, D 적용)**: sync outbox listener 근본 병목 제거
 - `@Async` + Executor Bean 정의
 - HC5 결과와 무관하게 진행 필요한 개선
+- app-api의 Hikari 커넥션 #2 점유 자체를 제거하므로 앞으로 유사한 cascade가 원천 차단됨
 
 ---
 

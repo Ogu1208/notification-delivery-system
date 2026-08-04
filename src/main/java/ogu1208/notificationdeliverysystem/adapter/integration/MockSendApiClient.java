@@ -4,8 +4,18 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.http.io.SocketConfig;
+import org.apache.hc.core5.util.TimeValue;
+import org.apache.hc.core5.util.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +23,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -37,11 +47,55 @@ public class MockSendApiClient {
 		ObjectMapper objectMapper,
 		@Value("${notification.mock-send.base-url:http://localhost:8081}") String baseUrl,
 		@Value("${notification.mock-send.connect-timeout-ms:1000}") long connectTimeoutMs,
-		@Value("${notification.mock-send.read-timeout-ms:3000}") long readTimeoutMs
+		@Value("${notification.mock-send.read-timeout-ms:3000}") long readTimeoutMs,
+		@Value("${notification.mock-send.pool.max-total:200}") int poolMaxTotal,
+		@Value("${notification.mock-send.pool.max-per-route:100}") int poolMaxPerRoute,
+		@Value("${notification.mock-send.pool.validate-after-inactivity-sec:10}") int validateAfterInactivitySec,
+		@Value("${notification.mock-send.pool.time-to-live-min:10}") int timeToLiveMin,
+		@Value("${notification.mock-send.pool.evict-idle-sec:30}") int evictIdleSec
 	) {
-		SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-		requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
-		requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
+		// Socket 레벨 설정. SO_KEEPALIVE로 TCP half-open 감지.
+		// SO_TIMEOUT은 소켓 레벨 read timeout (RequestConfig.responseTimeout과 중복 피하려 여기 한 곳에만 둠).
+		SocketConfig socketConfig = SocketConfig.custom()
+			.setSoKeepAlive(true)
+			.setSoTimeout(Timeout.of(readTimeoutMs, TimeUnit.MILLISECONDS))
+			.build();
+
+		// Connection 레벨 설정. validateAfterInactivity로 stale connection 재사용 전 검증.
+		// timeToLive로 커넥션 최대 재사용 시간 상한 (오래된 것 강제 폐기).
+		ConnectionConfig connectionConfig = ConnectionConfig.custom()
+			.setConnectTimeout(Timeout.of(connectTimeoutMs, TimeUnit.MILLISECONDS))
+			.setValidateAfterInactivity(TimeValue.ofSeconds(validateAfterInactivitySec))
+			.setTimeToLive(TimeValue.ofMinutes(timeToLiveMin))
+			.build();
+
+		PoolingHttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
+			.setMaxConnTotal(poolMaxTotal)
+			.setMaxConnPerRoute(poolMaxPerRoute)
+			.setDefaultSocketConfig(socketConfig)
+			.setDefaultConnectionConfig(connectionConfig)
+			.build();
+
+		// Request 레벨 설정.
+		// connectionRequestTimeout: pool에서 커넥션 대여 대기 시간 (pool 소진 시).
+		// responseTimeout: 응답 대기 시간 (HC5의 request-level read timeout).
+		RequestConfig requestConfig = RequestConfig.custom()
+			.setConnectionRequestTimeout(Timeout.of(connectTimeoutMs, TimeUnit.MILLISECONDS))
+			.setResponseTimeout(Timeout.of(readTimeoutMs, TimeUnit.MILLISECONDS))
+			.build();
+
+		// evictIdleConnections / evictExpiredConnections로 백그라운드 정리 스레드 활성화.
+		// idle timeout 넘거나 만료된 커넥션을 자동 폐기해 pool에 stale 커넥션이 쌓이지 않게 한다.
+		CloseableHttpClient httpClient = HttpClients.custom()
+			.setConnectionManager(connectionManager)
+			.setDefaultRequestConfig(requestConfig)
+			.evictIdleConnections(TimeValue.ofSeconds(evictIdleSec))
+			.evictExpiredConnections()
+			.build();
+
+		HttpComponentsClientHttpRequestFactory requestFactory =
+			new HttpComponentsClientHttpRequestFactory(httpClient);
+
 		this.restClient = restClientBuilder
 			.baseUrl(baseUrl)
 			.requestFactory(requestFactory)

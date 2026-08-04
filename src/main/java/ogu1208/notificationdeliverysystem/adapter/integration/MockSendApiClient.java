@@ -4,16 +4,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.hc.client5.http.config.ConnectionConfig;
-import org.apache.hc.client5.http.config.RequestConfig;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
-import org.apache.hc.core5.util.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,7 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -45,40 +37,11 @@ public class MockSendApiClient {
 		ObjectMapper objectMapper,
 		@Value("${notification.mock-send.base-url:http://localhost:8081}") String baseUrl,
 		@Value("${notification.mock-send.connect-timeout-ms:1000}") long connectTimeoutMs,
-		@Value("${notification.mock-send.read-timeout-ms:3000}") long readTimeoutMs,
-		@Value("${notification.mock-send.pool.max-total:200}") int poolMaxTotal,
-		@Value("${notification.mock-send.pool.max-per-route:100}") int poolMaxPerRoute
+		@Value("${notification.mock-send.read-timeout-ms:3000}") long readTimeoutMs
 	) {
-		// Apache HttpClient 5 connection pool.
-		// - maxTotal: 이 HttpClient가 유지하는 총 커넥션 상한
-		// - maxPerRoute: 같은 (scheme://host:port) 대상 하나에 대한 커넥션 상한
-		//                우리 케이스: sendmock 호스트 하나뿐 → maxPerRoute가 실질 상한
-		// JDK HttpURLConnection의 keep-alive 기본 5개 제약을 벗어남.
-		PoolingHttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
-			.setMaxConnTotal(poolMaxTotal)
-			.setMaxConnPerRoute(poolMaxPerRoute)
-			.setDefaultConnectionConfig(ConnectionConfig.custom()
-				.setConnectTimeout(Timeout.of(connectTimeoutMs, TimeUnit.MILLISECONDS))
-				.setSocketTimeout(Timeout.of(readTimeoutMs, TimeUnit.MILLISECONDS))
-				.build())
-			.build();
-
-		// RequestConfig: 요청 단위 timeout.
-		// - connectionRequestTimeout: pool에서 커넥션 대여 대기 시간 (pool 소진 시)
-		// - responseTimeout: 응답 대기 시간 (read timeout과 유사한 역할, HC5에선 이걸 씀)
-		RequestConfig requestConfig = RequestConfig.custom()
-			.setConnectionRequestTimeout(Timeout.of(connectTimeoutMs, TimeUnit.MILLISECONDS))
-			.setResponseTimeout(Timeout.of(readTimeoutMs, TimeUnit.MILLISECONDS))
-			.build();
-
-		CloseableHttpClient httpClient = HttpClients.custom()
-			.setConnectionManager(connectionManager)
-			.setDefaultRequestConfig(requestConfig)
-			.build();
-
-		HttpComponentsClientHttpRequestFactory requestFactory =
-			new HttpComponentsClientHttpRequestFactory(httpClient);
-
+		SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+		requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
+		requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
 		this.restClient = restClientBuilder
 			.baseUrl(baseUrl)
 			.requestFactory(requestFactory)

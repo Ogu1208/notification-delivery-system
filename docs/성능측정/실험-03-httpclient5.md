@@ -36,6 +36,86 @@ Apache HttpClient 5를 추가하고 풀 크기를 명시하시는 걸 권장드�
 
 지적을 반영해 Apache HttpClient 5로 전환하는 것이 자연스러운 다음 개선.
 
+### 1.4 SimpleClientHttpRequestFactory vs Apache HttpClient 5 상세 비교
+
+두 방식이 사실 "설정 가능한 것"의 층위 자체가 다름. `SimpleClientHttpRequestFactory`도 아무 것도 못 하는 건 아니지만, **HTTP 통신 튜닝의 대부분이 JVM 전역 프로퍼티에 얹혀 있는 구조**라 세밀한 운영이 어려움.
+
+#### (1) 커넥션 풀 (핵심 차이)
+
+| 구분 | SimpleClientHttpRequestFactory (JDK) | HttpComponentsClientHttpRequestFactory (HC5) |
+|---|---|---|
+| Pool 구현 | JDK 내부 `KeepAliveCache` | `PoolingHttpClientConnectionManager` (명시적 객체) |
+| 총 커넥션 상한 | `-Dhttp.maxConnections` (JVM 전역, 기본 5) | `setMaxConnTotal(N)` (client 별) |
+| Host별 상한 | JVM 전역 프로퍼티만, host 구분 없음 | `setMaxConnPerRoute(N)` (route 별) |
+| 여러 client 격리 | 불가 (JVM 하나면 pool 하나) | 가능 (client마다 별도 pool) |
+| Pool 상태 관측 | 불가 (JDK 내부 캐시라 노출 없음) | `PoolStats` (leased/available/pending) 조회 가능 |
+
+**의미**: 우리처럼 sendmock 하나만 호출하는 케이스는 그럭저럭 넘어가지만, **여러 외부 시스템(예: 이메일 API + SMS API + 카카오 API)이 있으면 JDK 방식은 각각 격리된 pool을 못 만듦**. 하나 시스템이 느리면 다른 pool까지 연쇄 영향. HC5는 client마다 별도 pool로 격리.
+
+#### (2) Timeout 종류
+
+| 종류 | SimpleClientHttpRequestFactory | HC5 |
+|---|---|---|
+| Connect timeout (TCP 연결 대기) | O (`setConnectTimeout`) | O (`ConnectionConfig.setConnectTimeout`) |
+| Read timeout / Response timeout | O (`setReadTimeout`) | O (`RequestConfig.setResponseTimeout`) |
+| **Connection request timeout** (pool에서 커넥션 대여 대기) | X | O (`RequestConfig.setConnectionRequestTimeout`) |
+| **Socket SO_TIMEOUT** (TCP 소켓 레벨) | X (JDK 내부에서 처리) | O (`SocketConfig.setSoTimeout`) |
+| **Validate after inactivity** (idle 커넥션 유효성 검증 임계) | X | O (`ConnectionConfig.setValidateAfterInactivity`) |
+| **Time to live** (커넥션 최대 재사용 시간) | X | O (`ConnectionConfig.setTimeToLive`) |
+
+**의미**: JDK 방식은 사실상 두 timeout만 노출됨. HC5는 각 단계별로 다른 timeout을 설정할 수 있어 **어디서 어떤 유형의 지연이 발생하는지 세밀하게 대응 가능**.
+
+- 예: Pool이 만원인 상황에서 계속 무한 대기하면 안 되니 `connectionRequestTimeout` 을 짧게 (100ms). Pool에서 못 얻으면 즉시 실패로 fallback.
+- 예: TCP는 붙었는데 서버가 응답 안 주면 `responseTimeout` (3s). 무한 대기 방지.
+- 예: TCP 소켓 자체가 갑자기 끊기는 half-open 감지는 `SocketConfig.setSoKeepAlive(true)` 로 OS 레벨 keepalive 활성화.
+
+#### (3) 커넥션 재사용/정리 정책
+
+**서버가 keepalive로 유지하던 커넥션을 언젠가는 close 함** (Spring Boot Tomcat 기본 60초). 클라이언트가 이걸 모르면 "죽은 커넥션"을 pool에서 꺼내 요청 → 첫 바이트 실패 → 재시도. 이 오버헤드가 클 수 있음.
+
+| 정책 | JDK | HC5 |
+|---|---|---|
+| Idle 커넥션 자동 정리 | 없음 (혹은 JVM 내부 최소 로직) | `evictIdleConnections(TimeValue)` |
+| 만료 커넥션 자동 정리 | 없음 | `evictExpiredConnections()` |
+| 커넥션 재사용 전 유효성 검증 | 없음 | `validateAfterInactivity(TimeValue)` |
+| Keepalive 전략 커스텀 | 불가 | `setKeepAliveStrategy(...)` |
+
+**의미**: JDK 방식은 "그냥 재사용 시도, 실패하면 새로 만들기" 정도의 정책. HC5는 **"idle 오래된 건 아예 폐기하고, 사용 전 검증"** 같은 방어 로직을 켤 수 있음.
+
+#### (4) 관측성
+
+| 관측 대상 | JDK | HC5 |
+|---|---|---|
+| Pool 사용률 | 불가 | `PoolStats` API |
+| Route 별 leased/available/pending | 불가 | 지원 |
+| Micrometer 통합 | 제한적 | 별도 통합 라이브러리 있음 |
+| Connection lifecycle 로그 | slf4j 없음 | slf4j 로그 (org.apache.hc.*) |
+
+**의미**: 성능 문제 진단 시 JDK 방식은 "블랙박스". HC5는 **"지금 이 client의 pool이 얼마 차 있는지, 이 host로 요청이 얼마 대기 중인지"** 실시간 확인 가능.
+
+#### (5) 확장성
+
+| 항목 | JDK | HC5 |
+|---|---|---|
+| Interceptor 체인 | 없음 | Request/Response interceptor 체인 |
+| Retry 전략 커스텀 | 없음 | `HttpRequestRetryStrategy` 구현 가능 |
+| Redirect 정책 커스텀 | 제한적 | `RedirectStrategy` |
+| 인증 전략 | 기본만 | 다양한 스킴 지원 |
+| Circuit Breaker 통합 | 별도 wrapping 필요 | Resilience4j 등과 통합 자연스러움 |
+
+#### (6) 설정 가능성 한 줄 요약
+
+- **JDK/SimpleClientHttpRequestFactory**: "간단한 케이스에 적합, 하지만 튜닝 여지가 제한적. 튜닝은 대부분 JVM 전역 시스템 프로퍼티에 의존"
+- **HC5/HttpComponentsClientHttpRequestFactory**: "코드로 명시적으로 pool, timeout, 정리 정책, 관측을 다 설정. 여러 client 격리 가능. 운영에서 지시하고 관측하고 반응하기에 적합"
+
+#### (7) 그럼에도 SimpleClientHttpRequestFactory가 여전히 쓰이는 이유
+
+- 의존성 없음 (JDK 내장)
+- 간단한 케이스(단일 host, 저부하)에 코드가 짧음
+- 학습 곡선 낮음
+
+**그러나 이 프로젝트처럼 부하 테스트/성능 측정/재시도/동시 발송이 있는 시나리오에서는 부적합**. 코드리뷰가 지적한 이유가 바로 이것.
+
 ---
 
 ## 2. 적용한 변경

@@ -11,8 +11,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.task.SyncTaskExecutor;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import ogu1208.notificationdeliverysystem.adapter.messaging.outbox.OutboxAsyncConfig;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
 import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
@@ -22,7 +25,10 @@ import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegist
 import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
 
-@SpringBootTest(properties = "notification.outbox.publisher-enabled=true")
+@SpringBootTest(properties = {
+	"notification.outbox.publisher-enabled=true",
+	"spring.main.allow-bean-definition-overriding=true"
+})
 class NotificationOutboxPublishTransactionBoundaryTest {
 
 	@Autowired
@@ -78,6 +84,13 @@ class NotificationOutboxPublishTransactionBoundaryTest {
 		@Primary
 		RecordingNotificationMessagePublisher recordingNotificationMessagePublisher() {
 			return new RecordingNotificationMessagePublisher();
+		}
+
+		// commit 직후 발행 검증이 목적이므로 async Executor를 sync로 대체
+		@Bean(name = OutboxAsyncConfig.EXECUTOR_BEAN_NAME)
+		@Primary
+		TaskExecutor outboxAsyncExecutor() {
+			return new SyncTaskExecutor();
 		}
 	}
 

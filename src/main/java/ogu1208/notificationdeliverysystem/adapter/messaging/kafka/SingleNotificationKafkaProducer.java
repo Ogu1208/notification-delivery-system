@@ -8,9 +8,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
+import lombok.extern.slf4j.Slf4j;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 
+@Slf4j
 @Component
 public class SingleNotificationKafkaProducer implements NotificationMessagePublisher {
 
@@ -31,12 +33,21 @@ public class SingleNotificationKafkaProducer implements NotificationMessagePubli
 	@Override
 	public void publish(Notification notification) {
 		// KafkaTemplate은 Spring Boot가 application.yml의 spring.kafka 설정으로 자동 구성한다.
+		String messageKey = String.valueOf(notification.getId());
 		try {
 			kafkaTemplate.send(
 				topic,
-				String.valueOf(notification.getId()),
+				messageKey,
 				SingleNotificationMessage.from(notification)
 			).get(publishTimeoutMs, TimeUnit.MILLISECONDS);
+			log.info(
+				"Kafka 알림 메시지 발행 성공. topic={}, key={}, notificationId={}, requestId={}, channel={}",
+				topic,
+				messageKey,
+				notification.getId(),
+				notification.getRequestId().value(),
+				notification.getChannel()
+			);
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 			throw new IllegalStateException("Kafka 알림 메시지 발행이 중단되었습니다", e);

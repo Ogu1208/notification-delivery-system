@@ -16,13 +16,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 class SingleNotificationKafkaProducerTest {
 
 	@Mock
@@ -87,6 +89,31 @@ class SingleNotificationKafkaProducerTest {
 			eq("single-notification-send"),
 			eq("1"),
 			argThat(message -> message.notificationId().equals(notification.getId()))
+		);
+	}
+
+	@Test
+	@DisplayName("Kafka 발행 성공 로그에 topic과 알림 식별자를 남긴다")
+	void publishLogsKafkaPublishSuccess(CapturedOutput output) {
+		SingleNotificationKafkaProducer producer = new SingleNotificationKafkaProducer(
+			kafkaTemplate,
+			"single-notification-send",
+			3000
+		);
+		Notification notification = NotificationFixture.createNotification(1L);
+		given(kafkaTemplate.send(
+			eq("single-notification-send"),
+			eq("1"),
+			argThat(message -> message.notificationId().equals(notification.getId()))
+		)).willReturn(CompletableFuture.completedFuture(new SendResult<>(null, null)));
+
+		producer.publish(notification);
+
+		assertThat(output).contains(
+			"Kafka 알림 메시지 발행 성공",
+			"topic=single-notification-send",
+			"notificationId=1",
+			"requestId=" + notification.getRequestId().value()
 		);
 	}
 

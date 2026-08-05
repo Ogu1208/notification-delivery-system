@@ -1,0 +1,171 @@
+# 성능 측정용 override 파일.
+# 사용: docker compose -f compose.yaml -f docker-compose.observability.yml up -d [--scale app-worker=N]
+#
+# 이 파일이 추가/오버라이드하는 것:
+#   - app-api, app-worker: 컨테이너화된 Spring 앱 (perf profile)
+#   - traefik: API 앞단 로드밸런서 (Docker 소켓 감시로 스케일 변경 자동 반영)
+#   - postgres-exporter, kafka-exporter, redis-exporter: 각 인프라 지표 수집
+#   - prometheus, grafana: 관측 스택
+
+services:
+  # 앱 API 인스턴스. Traefik이 라벨을 감지해 자동 upstream 등록.
+  # --scale app-api=N 으로 다중 인스턴스로 확장 가능.
+  app-api:
+    build: .
+    ports:
+      # 9091: management(actuator) 포트. verify-setup.sh 헬스체크와 디버깅용.
+      # 비즈니스 API(8080)와 격리되어 앱 마비 시에도 응답 가능.
+      # --scale=N 확장 시 첫 컨테이너만 host에 바인딩 (내부 통신은 문제 없음).
+      - "9091:9091"
+    environment:
+      # Spring Boot relaxed binding: 대시(-) 대신 언더스코어 사용.
+      # 예: NOTIFICATION_ROLE_API_ENABLED -> notification.role.api-enabled
+      SPRING_PROFILES_ACTIVE: perf
+      APP_ROLE: api                             # Micrometer role 태그
+      NOTIFICATION_ROLE_API_ENABLED: "true"
+      NOTIFICATION_ROLE_WORKER_ENABLED: "false"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification
+      SPRING_DATA_REDIS_HOST: redis
+      NOTIFICATION_MOCK_SEND_BASE_URL: http://host.docker.internal:8081
+    extra_hosts:
+      # Linux 호환 (Mac/Windows는 host.docker.internal 기본 지원)
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1g
+    depends_on:
+      kafka: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    labels:
+      # Traefik이 이 라벨을 감지해 자동으로 upstream에 등록한다.
+      - "traefik.enable=true"
+      - "traefik.http.routers.notification.rule=PathPrefix(`/`)"
+      - "traefik.http.services.notification.loadbalancer.server.port=8080"
+
+  # 워커 인스턴스. Kafka consumer + sender만 활성화. API는 비활성화.
+  # --scale app-worker=N 으로 다중 인스턴스로 확장 가능.
+  # Kafka consumer group이 partition 단위로 자동 분배하므로 별도 LB 불필요.
+  app-worker:
+    build: .
+    environment:
+      SPRING_PROFILES_ACTIVE: perf
+      APP_ROLE: worker                          # Micrometer role 태그
+      NOTIFICATION_ROLE_API_ENABLED: "false"
+      NOTIFICATION_ROLE_WORKER_ENABLED: "true"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification
+      SPRING_DATA_REDIS_HOST: redis
+      NOTIFICATION_MOCK_SEND_BASE_URL: http://host.docker.internal:8081
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1g
+    depends_on:
+      kafka: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+
+  # API 로드밸런서. Docker 소켓을 구독해 스케일 변동을 자동 감지.
+  traefik:
+    image: traefik:v3.2
+    ports:
+      - "8080:80"     # API 진입점 (k6 -> 여기 -> app-api들)
+      - "8082:8080"   # Traefik 대시보드 (라우팅 상태 확인)
+    volumes:
+      - ./observability/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    environment:
+      # postgres_exporter는 DATA_SOURCE_NAME 형식으로 접속 문자열을 받는다.
+      DATA_SOURCE_NAME: "postgresql://notification:notification@postgres:5432/notification?sslmode=disable"
+      PG_EXPORTER_INCLUDE_DATABASES: "notification"
+    depends_on:
+      postgres: { condition: service_healthy }
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 128M
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.9.0
+    command:
+      - "--kafka.server=kafka:29092"
+    depends_on:
+      kafka: { condition: service_healthy }
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 128M
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.66.0
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+    depends_on:
+      redis: { condition: service_healthy }
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 128M
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    ports:
+      - "9090:9090"
+    command:
+      # 로컬 자원 절약을 위해 짧은 retention 사용.
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=3d"
+      - "--storage.tsdb.retention.size=1GB"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - notification-prometheus-data:/prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      # 로컬 전용: 뷰어 권한으로 익명 접속 허용 (편의).
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - notification-grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+volumes:
+  notification-prometheus-data:
+  notification-grafana-data:

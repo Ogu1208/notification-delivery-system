@@ -12,6 +12,14 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: ogu1208.notificationdeliverysystem.adapter.messaging.kafka
+        # Consumer 크래시 감지 시간. Kafka 3.0+ 기본값을 명시적으로 유지한다.
+        # notification.dispatch-lock.ttl-ms는 이 값보다 여유 있게 설정해 재전달 창을 락으로 덮는다.
+        session.timeout.ms: 45000
+    listener:
+      # Consumer 스레드 개수. partition 수와 균형을 맞춰야 한다.
+      # partition보다 크면 초과 스레드는 idle. partition과 같거나 작아야 유효.
+      # 현재 topic partition = 6 이므로 6으로 설정.
+      concurrency: 6
 
 notification:
   kafka:
@@ -22,12 +30,58 @@ notification:
     publisher-enabled: false
     polling-interval-ms: 1000
     polling-batch-size: 100
+    pending-min-age-ms: 3000
     recovery-interval-ms: 30000
     recovery-batch-size: 500
     processing-timeout-ms: 300000
   dispatch-lock:
     type: dummy
-    ttl-ms: 30000
+    # Kafka session.timeout.ms(45s)보다 크게 잡아 Consumer 크래시 후 재전달된 메시지가 락 만료 전에 도달하도록 한다.
+    ttl-ms: 60000
+  mock-send:
+    base-url: http://localhost:8081
+    connect-timeout-ms: 1000
+    read-timeout-ms: 3000
+  retry:
+    publisher-enabled: false
+    polling-interval-ms: 1000
+    polling-batch-size: 100
+    max-count: 3
+    backoff-seconds: 10,20,30
   role:
     api-enabled: true
     worker-enabled: false
+
+management:
+  # Actuator를 별도 포트로 분리해 관측 계층을 비즈니스 API와 격리.
+  # 8080 Tomcat pool이 소진돼도 9091은 독립적으로 응답 가능.
+  # (앱 마비 상황에서도 지표 스크레이핑이 지속되어 진단 가능)
+  server:
+    port: 9091
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics
+  endpoint:
+    prometheus:
+      access: read_only
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      profile: ${spring.profiles.active:local}
+      # 컨테이너별 역할 라벨. 같은 이미지가 app-api/app-worker로 뜨는데
+      # metric에 role 라벨을 붙여 Grafana에서 구분 가능하게 한다.
+      # --scale app-worker=3 시에도 role=worker 인스턴스들이 자동 그룹핑됨.
+      role: ${APP_ROLE:unknown}
+    distribution:
+      # p95/p99 계산을 위해 histogram 활성화.
+      # SLO 버킷은 API 응답 SLA 후보로 잡은 값. 필요 시 조정.
+      # 여러 인스턴스 통합 percentile을 정확히 얻으려면 summary/timer가 아닌
+      # histogram이 필수. Hikari acquire도 pool 압박 관측용으로 켠다.
+      percentiles-histogram:
+        http.server.requests: true
+        notification.send: true
+        notification.outbox.publish: true
+        hikaricp.connections.acquire: true
+      slo:
+        http.server.requests: 50ms, 100ms, 200ms, 500ms, 1s, 2s

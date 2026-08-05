@@ -1,0 +1,84 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum by (state) (pg_stat_activity_count{datname=\"notification\"})", "legendFormat": "{{state}}", "refId": "A"}
+      ],
+      "title": "Connection 상태별 개수",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "rate(pg_stat_database_xact_commit{datname=\"notification\"}[1m])", "legendFormat": "commits/s", "refId": "A"},
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "rate(pg_stat_database_xact_rollback{datname=\"notification\"}[1m])", "legendFormat": "rollbacks/s", "refId": "B"}
+      ],
+      "title": "TPS (commit + rollback)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 3,
+      "options": {"legend": {"displayMode": "list", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}},
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "rate(pg_stat_database_tup_inserted{datname=\"notification\"}[1m])", "legendFormat": "inserted/s", "refId": "A"},
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "rate(pg_stat_database_tup_updated{datname=\"notification\"}[1m])", "legendFormat": "updated/s", "refId": "B"},
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "rate(pg_stat_database_tup_fetched{datname=\"notification\"}[1m])", "legendFormat": "fetched/s", "refId": "C"}
+      ],
+      "title": "Row throughput (insert/update/fetch)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 4,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single"}},
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "sum(rate(pg_stat_database_blks_hit{datname=\"notification\"}[1m])) / (sum(rate(pg_stat_database_blks_hit{datname=\"notification\"}[1m])) + sum(rate(pg_stat_database_blks_read{datname=\"notification\"}[1m])))", "legendFormat": "cache hit ratio", "refId": "A"}
+      ],
+      "title": "Buffer cache hit ratio",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 16},
+      "id": 5,
+      "options": {"showHeader": true},
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "prometheus"}, "expr": "topk(10, pg_stat_statements_mean_time_seconds)", "format": "table", "instant": true, "refId": "A"}
+      ],
+      "title": "Slow queries top 10 (mean time)",
+      "type": "table"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["notification", "postgres"],
+  "templating": {"list": []},
+  "time": {"from": "now-15m", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "Notification / Postgres",
+  "uid": "notification-postgres",
+  "version": 0,
+  "weekStart": ""
+}

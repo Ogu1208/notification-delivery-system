@@ -10,46 +10,41 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLock;
 import ogu1208.notificationdeliverysystem.application.notification.required.DispatchLockManager;
+import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSendException;
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
-import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventNotifier;
-import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
-import ogu1208.notificationdeliverysystem.domain.outbox.OutboxAggregateType;
-import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEvent;
-import ogu1208.notificationdeliverysystem.domain.outbox.OutboxEventStatus;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
 
+@ExtendWith(OutputCaptureExtension.class)
 class NotificationSenderTest {
 
 	private final FakeNotificationRepository repository = new FakeNotificationRepository();
 	private final SpyExternalNotificationSender externalSender = new SpyExternalNotificationSender();
 	private final FakeDispatchLockManager dispatchLockManager = new FakeDispatchLockManager();
-	private final StubOutboxEventRepository outboxEventRepository = new StubOutboxEventRepository();
-	private final StubOutboxEventNotifier outboxEventNotifier = new StubOutboxEventNotifier();
-	private final NotificationRegisterTransactionService registerTransactionService = new NotificationRegisterTransactionService(
+	private final NotificationRetryPolicy retryPolicy = new NotificationRetryPolicy(3, List.of(10L, 20L, 30L));
+	private final ApplicationEventPublisher eventPublisher = event -> {
+	};
+	private final NotificationSender notificationSender = new NotificationDispatchService(
 		repository,
-		outboxEventRepository,
-		outboxEventNotifier
-	);
-	private final NotificationSendTransactionService sendTransactionService = new NotificationSendTransactionService(
-		repository,
-		externalSender
-	);
-	private final NotificationSender notificationSender = new NotificationModifyService(
-		registerTransactionService,
-		sendTransactionService,
-		dispatchLockManager
+		externalSender,
+		dispatchLockManager,
+		retryPolicy,
+		eventPublisher
 	);
 
 	@Test
 	@DisplayName("대기 중인 알림을 발송하고 성공 상태로 변경한다")
-	void sendPendingNotificationAndMarksSent() {
+	void sendPendingNotificationAndMarksSent(CapturedOutput output) {
 		Notification notification = NotificationFixture.createNotification(1L);
 		repository.save(notification);
 
@@ -63,13 +58,19 @@ class NotificationSenderTest {
 		assertThat(notification.getSentAt()).isNotNull();
 		assertThat(dispatchLockManager.tryAcquireCount).isEqualTo(1);
 		assertThat(dispatchLockManager.closedLockCount).isEqualTo(1);
+		assertThat(output).contains(
+			"알림 발송 성공",
+			"notificationId=1",
+			"requestId=" + notification.getRequestId().value(),
+			"attemptCount=1"
+		);
 	}
 
 	@Test
 	@DisplayName("이미 완료된 알림은 다시 발송하지 않는다")
 	void sendSkipsCompletedNotification() {
 		Notification notification = NotificationFixture.createNotification(1L);
-		notification.startSending();
+		notification.startProcessing();
 		notification.markSent();
 		repository.save(notification);
 
@@ -85,15 +86,95 @@ class NotificationSenderTest {
 	void sendMarksFailedWhenExternalSenderFails() {
 		Notification notification = NotificationFixture.createNotification(1L);
 		repository.save(notification);
-		externalSender.failure = new RuntimeException("mock failure");
+		externalSender.failure = ExternalNotificationSendException.nonRetryable(
+			"invalid receiver",
+			"MOCK_BAD_REQUEST",
+			400,
+			null
+		);
 
 		notificationSender.send(1L);
 
 		assertThat(notification.getStatus()).isEqualTo(NotificationStatus.FAILED);
 		assertThat(notification.getAttemptCount()).isEqualTo(1);
-		assertThat(notification.getFailureReason()).isEqualTo("mock failure");
+		assertThat(notification.getFailureReason()).isEqualTo("invalid receiver");
 		assertThat(notification.getFailedAt()).isNotNull();
 		assertThat(dispatchLockManager.closedLockCount).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("외부 발송이 일시 실패하면 재시도 대기 상태로 변경한다")
+	void sendMarksRetryWaitWhenExternalSenderTemporarilyFails() {
+		Notification notification = NotificationFixture.createNotification(1L);
+		repository.save(notification);
+		externalSender.failure = ExternalNotificationSendException.retryable(
+			"mock api timeout",
+			"MOCK_TIMEOUT",
+			null,
+			null
+		);
+
+		notificationSender.send(1L);
+
+		assertThat(notification.getStatus()).isEqualTo(NotificationStatus.RETRY_WAIT);
+		assertThat(notification.getRetryCount()).isEqualTo(1);
+		assertThat(notification.getLastError()).isEqualTo("mock api timeout");
+		assertThat(notification.getLastErrorCode()).isEqualTo("MOCK_TIMEOUT");
+		assertThat(notification.getNextRetryAt()).isNotNull();
+	}
+
+	@Test
+	@DisplayName("설정된 backoff 초를 기준으로 다음 재시도 시간을 계산한다")
+	void sendSchedulesNextRetryWithConfiguredBackoff() {
+		NotificationSender notificationSender = new NotificationDispatchService(
+			repository,
+			externalSender,
+			dispatchLockManager,
+			new NotificationRetryPolicy(3, List.of(60L, 120L, 180L)),
+			eventPublisher
+		);
+		Notification notification = NotificationFixture.createNotification(1L);
+		repository.save(notification);
+		externalSender.failure = ExternalNotificationSendException.retryable(
+			"mock api timeout",
+			"MOCK_TIMEOUT",
+			null,
+			null
+		);
+		LocalDateTime beforeSend = LocalDateTime.now();
+
+		notificationSender.send(1L);
+
+		assertThat(notification.getNextRetryAt()).isAfterOrEqualTo(beforeSend.plusSeconds(60));
+	}
+
+	@Test
+	@DisplayName("재시도 한도를 초과하면 데드 상태로 변경한다")
+	void sendMarksDeadWhenRetryLimitExceeded() {
+		Notification notification = NotificationFixture.createNotification(1L);
+		notification.startProcessing();
+		notification.markRetryWait("mock api unavailable", "MOCK_UNAVAILABLE", 503, LocalDateTime.now().minusSeconds(1));
+		notification.startProcessing();
+		notification.markRetryWait("mock api unavailable", "MOCK_UNAVAILABLE", 503, LocalDateTime.now().minusSeconds(1));
+		notification.startProcessing();
+		notification.markRetryWait("mock api unavailable", "MOCK_UNAVAILABLE", 503, LocalDateTime.now().minusSeconds(1));
+		repository.save(notification);
+		externalSender.failure = ExternalNotificationSendException.retryable(
+			"mock api unavailable",
+			"MOCK_UNAVAILABLE",
+			503,
+			null
+		);
+
+		notificationSender.send(1L);
+
+		assertThat(notification.getStatus()).isEqualTo(NotificationStatus.DEAD);
+		assertThat(notification.getRetryCount()).isEqualTo(3);
+		assertThat(notification.getFailureReason()).isEqualTo("재시도 한도 초과: mock api unavailable");
+		assertThat(notification.getFailedAt()).isNotNull();
+		assertThat(notification.getLastError()).isEqualTo("mock api unavailable");
+		assertThat(notification.getLastErrorCode()).isEqualTo("MOCK_UNAVAILABLE");
+		assertThat(notification.getLastExternalStatusCode()).isEqualTo(503);
 	}
 
 	@Test
@@ -133,44 +214,10 @@ class NotificationSenderTest {
 				.filter(notification -> notification.getRequestId().value().equals(requestId))
 				.findFirst();
 		}
-	}
-
-	private static class StubOutboxEventRepository implements OutboxEventRepository {
 
 		@Override
-		public OutboxEvent save(OutboxEvent outboxEvent) {
-			return outboxEvent;
-		}
-
-		@Override
-		public Optional<OutboxEvent> findById(Long id) {
-			return Optional.empty();
-		}
-
-		@Override
-		public List<OutboxEvent> findPendingOrderByIdAsc(int limit) {
+		public List<Notification> findRetryWaitDue(LocalDateTime now, int limit) {
 			return List.of();
-		}
-
-		@Override
-		public List<OutboxEvent> findProcessingUpdatedBefore(LocalDateTime cutoff, int limit) {
-			return List.of();
-		}
-
-		@Override
-		public Optional<OutboxEvent> findByAggregateTypeAndAggregateIdAndStatus(
-			OutboxAggregateType aggregateType,
-			Long aggregateId,
-			OutboxEventStatus status
-		) {
-			return Optional.empty();
-		}
-	}
-
-	private static class StubOutboxEventNotifier implements OutboxEventNotifier {
-
-		@Override
-		public void notifyOutboxSaved(Long notificationId) {
 		}
 	}
 

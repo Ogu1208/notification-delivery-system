@@ -38,3 +38,7 @@ out/
 
 ### Agent workflow notes ###
 /docs/superpowers/
+
+### macOS ###
+.DS_Store
+**/.DS_Store

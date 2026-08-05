@@ -1,0 +1,40 @@
+# 성능 측정용 Prometheus 스크레이핑 설정.
+# scrape_interval을 짧게(5s) 잡아 부하 파형을 촘촘하게 관측한다. 운영 표준은 15s 이상.
+
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+  external_labels:
+    env: local
+    application: NotificationDeliverySystem
+
+scrape_configs:
+  # Spring 앱은 --scale로 인스턴스 개수가 변할 수 있어서 target을 고정하지 않는다.
+  #
+  # Docker Compose 내부 DNS(127.0.0.11)는 서비스 이름 하나에 여러 컨테이너 IP를
+  # A 레코드로 반환한다. 예: --scale app-api=3 하면 app-api A 레코드 3개.
+  # dns_sd_configs는 refresh_interval마다 DNS를 다시 조회해 target 목록을 갱신한다.
+  #
+  # (tasks.<name> 접두어는 Swarm 전용이므로 여기서는 그냥 app-api / app-worker.)
+  #
+  # Port 9091: 앱의 management.server.port. Actuator 엔드포인트가 이 포트에 있음.
+  # 비즈니스 API(8080)와 격리되어 앱 마비 시에도 관측이 지속되도록 함.
+  - job_name: spring-app
+    metrics_path: /actuator/prometheus
+    dns_sd_configs:
+      - names: ['app-api', 'app-worker']
+        type: A
+        port: 9091
+        refresh_interval: 10s
+
+  - job_name: postgres-exporter
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  - job_name: kafka-exporter
+    static_configs:
+      - targets: ["kafka-exporter:9308"]
+
+  - job_name: redis-exporter
+    static_configs:
+      - targets: ["redis-exporter:9121"]

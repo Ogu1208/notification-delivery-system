@@ -30,9 +30,27 @@ public class OutboxEventPersistenceAdapter implements OutboxEventRepository {
 	}
 
 	@Override
+	public boolean markProcessingIfPending(Long id) {
+		return outboxEventJpaRepository.markProcessingIfPending(
+			id,
+			OutboxEventStatus.PENDING,
+			OutboxEventStatus.PROCESSING
+		) == 1;
+	}
+
+	@Override
 	public List<OutboxEvent> findPendingOrderByIdAsc(int limit) {
 		return outboxEventJpaRepository.findByStatusOrderByIdAsc(
 			OutboxEventStatus.PENDING,
+			PageRequest.of(0, limit)
+		);
+	}
+
+	@Override
+	public List<OutboxEvent> findPendingCreatedBeforeOrderByIdAsc(LocalDateTime cutoff, int limit) {
+		return outboxEventJpaRepository.findByStatusAndCreatedAtBeforeOrderByIdAsc(
+			OutboxEventStatus.PENDING,
+			cutoff,
 			PageRequest.of(0, limit)
 		);
 	}
@@ -53,5 +71,10 @@ public class OutboxEventPersistenceAdapter implements OutboxEventRepository {
 		OutboxEventStatus status
 	) {
 		return outboxEventJpaRepository.findByAggregateTypeAndAggregateIdAndStatus(aggregateType, aggregateId, status);
+	}
+
+	@Override
+	public long countByStatus(OutboxEventStatus status) {
+		return outboxEventJpaRepository.countByStatus(status);
 	}
 }

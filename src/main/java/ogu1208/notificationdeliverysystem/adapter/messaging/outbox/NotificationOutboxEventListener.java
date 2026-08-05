@@ -3,6 +3,7 @@ package ogu1208.notificationdeliverysystem.adapter.messaging.outbox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -20,10 +21,12 @@ public class NotificationOutboxEventListener {
 	private final NotificationOutboxPublishService outboxPublishService;
 
 	/**
-	 * 알림과 Outbox 저장 트랜잭션이 commit된 뒤 즉시 Kafka 발행 시도
+	 * 트랜잭션 commit 직후 해당 Outbox 이벤트를 Kafka로 발행한다.
 	 *
-	 * <p>실패해도 예외를 전파하지 않는다. Outbox polling 경로가 남은 PENDING 이벤트를 재시도한다.</p>
+	 * <p>{@link OutboxAsyncConfig} Executor에서 비동기로 실행되며,
+	 * 발행에 실패한 이벤트는 polling으로 복구된다.
 	 */
+	@Async(OutboxAsyncConfig.EXECUTOR_BEAN_NAME)
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	public void publishAfterCommit(NotificationOutboxSavedEvent event) {
 		try {

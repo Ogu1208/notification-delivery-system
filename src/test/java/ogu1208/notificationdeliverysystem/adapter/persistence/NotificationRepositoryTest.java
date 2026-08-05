@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture.createRequest;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +19,7 @@ import ogu1208.notificationdeliverysystem.application.notification.required.Noti
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
+import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
 
 @DataJpaTest
@@ -55,5 +59,40 @@ class NotificationRepositoryTest {
 
 		assertThatThrownBy(() -> notificationRepository.save(Notification.register(duplicateRequest)))
 			.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	@DisplayName("재시도 시간이 지난 RETRY_WAIT 알림만 제한 개수만큼 조회한다")
+	void findRetryWaitDue() {
+		LocalDateTime now = LocalDateTime.now();
+		Notification firstDue = retryWaitNotification("req-101", now.minusSeconds(10));
+		Notification secondDue = retryWaitNotification("req-102", now.minusSeconds(5));
+		Notification notDue = retryWaitNotification("req-103", now.plusSeconds(10));
+		Notification sent = Notification.register(NotificationFixture.builder()
+			.withRequestId("req-104")
+			.build());
+		sent.startProcessing();
+		sent.markSent();
+		notificationRepository.save(firstDue);
+		notificationRepository.save(secondDue);
+		notificationRepository.save(notDue);
+		notificationRepository.save(sent);
+		entityManager.flush();
+		entityManager.clear();
+
+		List<Notification> notifications = notificationRepository.findRetryWaitDue(now, 1);
+
+		assertThat(notifications).hasSize(1);
+		assertThat(notifications.get(0).getRequestId().value()).isEqualTo("req-101");
+		assertThat(notifications.get(0).getStatus()).isEqualTo(NotificationStatus.RETRY_WAIT);
+	}
+
+	private Notification retryWaitNotification(String requestId, LocalDateTime nextRetryAt) {
+		Notification notification = Notification.register(NotificationFixture.builder()
+			.withRequestId(requestId)
+			.build());
+		notification.startProcessing();
+		notification.markRetryWait("mock api unavailable", "MOCK_UNAVAILABLE", 503, nextRetryAt);
+		return notification;
 	}
 }

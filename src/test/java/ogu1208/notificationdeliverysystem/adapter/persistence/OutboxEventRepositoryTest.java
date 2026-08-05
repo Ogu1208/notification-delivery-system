@@ -49,6 +49,33 @@ class OutboxEventRepositoryTest {
 	}
 
 	@Test
+	@DisplayName("지정한 시각 이전에 생성된 대기 중 Outbox 이벤트만 제한 조회한다")
+	void findPendingEventsCreatedBeforeWithLimit() {
+		OutboxEvent staleEvent = outboxEventRepository.save(OutboxEvent.singleNotificationSend(1L));
+		OutboxEvent freshEvent = outboxEventRepository.save(OutboxEvent.singleNotificationSend(2L));
+		entityManager.flush();
+
+		LocalDateTime cutoff = LocalDateTime.now().minusSeconds(3);
+		jdbcTemplate.update(
+			"update outbox_event set created_at = ? where id = ?",
+			Timestamp.valueOf(cutoff.minusSeconds(1)),
+			staleEvent.getId()
+		);
+		jdbcTemplate.update(
+			"update outbox_event set created_at = ? where id = ?",
+			Timestamp.valueOf(cutoff.plusSeconds(1)),
+			freshEvent.getId()
+		);
+		entityManager.clear();
+
+		List<OutboxEvent> events = outboxEventRepository.findPendingCreatedBeforeOrderByIdAsc(cutoff, 100);
+
+		assertThat(events)
+			.extracting(OutboxEvent::getId)
+			.containsExactly(staleEvent.getId());
+	}
+
+	@Test
 	@DisplayName("오래 처리 중인 Outbox 이벤트를 상태와 수정 시각으로 제한 조회한다")
 	void findStaleProcessingEventsByStatusAndUpdatedAtWithLimit() {
 		OutboxEvent staleEvent = outboxEventRepository.save(OutboxEvent.singleNotificationSend(1L));
@@ -80,6 +107,25 @@ class OutboxEventRepositoryTest {
 	}
 
 	@Test
+	@DisplayName("대기 중인 Outbox 이벤트만 처리 중 상태로 선점한다")
+	void markProcessingIfPendingClaimsOnlyPendingEvent() {
+		OutboxEvent outboxEvent = outboxEventRepository.save(OutboxEvent.singleNotificationSend(1L));
+		entityManager.flush();
+		entityManager.clear();
+
+		boolean firstClaimed = outboxEventRepository.markProcessingIfPending(outboxEvent.getId());
+		boolean secondClaimed = outboxEventRepository.markProcessingIfPending(outboxEvent.getId());
+		entityManager.clear();
+
+		assertThat(firstClaimed).isTrue();
+		assertThat(secondClaimed).isFalse();
+		assertThat(outboxEventRepository.findById(outboxEvent.getId()))
+			.get()
+			.extracting(OutboxEvent::getStatus)
+			.isEqualTo(OutboxEventStatus.PROCESSING);
+	}
+
+	@Test
 	@DisplayName("Outbox polling과 단건 즉시 발행 조회를 위한 인덱스를 생성한다")
 	void createsOutboxLookupIndexes() {
 		List<String> indexNames = jdbcTemplate.queryForList(
@@ -89,6 +135,7 @@ class OutboxEventRepositoryTest {
 
 		assertThat(indexNames).contains(
 			"IDX_OUTBOX_EVENT_STATUS_ID",
+			"IDX_OUTBOX_EVENT_STATUS_CREATED_AT_ID",
 			"IDX_OUTBOX_EVENT_STATUS_UPDATED_AT",
 			"IDX_OUTBOX_EVENT_AGGREGATE_STATUS"
 		);

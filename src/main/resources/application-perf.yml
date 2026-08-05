@@ -1,0 +1,45 @@
+# perf 프로파일: 컨테이너 환경에서 성능 측정용.
+# Postgres로 전환하고, Kafka/Redis 호스트를 컴포즈 서비스 이름으로 변경한다.
+# 환경변수로도 오버라이드 가능. compose가 SPRING_DATASOURCE_URL 등을 세팅함.
+#
+# 성능 측정 시엔 모든 롤과 재시도/아웃박스 발행을 켠 상태여야 한다.
+# (default application.yml이 안전을 위해 false로 되어 있으므로 여기서 켠다.)
+
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/notification
+    username: notification
+    password: notification
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # 성능 측정 시 pool 크기를 명시적으로 잡아야 재현성이 확보된다.
+      # 초기값이고, 병목 분석 결과에 따라 조정.
+      maximum-pool-size: 20
+      minimum-idle: 5
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  kafka:
+    bootstrap-servers: kafka:9092
+  data:
+    redis:
+      host: redis
+      port: 6379
+
+notification:
+  # perf 시나리오에선 전체 파이프라인이 켜져 있어야 한다.
+  outbox:
+    publisher-enabled: true
+  dispatch-lock:
+    type: redis
+  retry:
+    publisher-enabled: true
+  role:
+    api-enabled: true
+    worker-enabled: true
+  mock-send:
+    # sendmock은 여전히 host에서 실행. compose 컨테이너에서 host 접근:
+    base-url: http://host.docker.internal:8081

@@ -14,7 +14,11 @@ public interface OutboxEventRepository {
 
 	Optional<OutboxEvent> findById(Long id);
 
+	boolean markProcessingIfPending(Long id);
+
 	List<OutboxEvent> findPendingOrderByIdAsc(int limit);
+
+	List<OutboxEvent> findPendingCreatedBeforeOrderByIdAsc(LocalDateTime cutoff, int limit);
 
 	List<OutboxEvent> findProcessingUpdatedBefore(LocalDateTime cutoff, int limit);
 
@@ -23,4 +27,6 @@ public interface OutboxEventRepository {
 		Long aggregateId,
 		OutboxEventStatus status
 	);
+
+	long countByStatus(OutboxEventStatus status);
 }

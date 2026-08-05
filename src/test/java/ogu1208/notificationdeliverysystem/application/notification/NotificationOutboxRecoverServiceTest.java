@@ -72,7 +72,17 @@ class NotificationOutboxRecoverServiceTest {
 		}
 
 		@Override
+		public boolean markProcessingIfPending(Long id) {
+			return false;
+		}
+
+		@Override
 		public List<OutboxEvent> findPendingOrderByIdAsc(int limit) {
+			return List.of();
+		}
+
+		@Override
+		public List<OutboxEvent> findPendingCreatedBeforeOrderByIdAsc(LocalDateTime cutoff, int limit) {
 			return List.of();
 		}
 
@@ -93,6 +103,13 @@ class NotificationOutboxRecoverServiceTest {
 			OutboxEventStatus status
 		) {
 			return Optional.empty();
+		}
+
+		@Override
+		public long countByStatus(OutboxEventStatus status) {
+			return events.stream()
+				.filter(outboxEvent -> outboxEvent.getStatus() == status)
+				.count();
 		}
 	}
 }

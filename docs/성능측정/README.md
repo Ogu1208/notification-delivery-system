@@ -19,6 +19,7 @@
 | [실험-02-튜닝v1.md](실험-02-튜닝v1.md) | Iteration 2: A+B+E(partition/concurrency/관측 격리) 적용 후 재측정. API 안정화, worker 처리량 부분 개선 |
 | [실험-03-httpclient5.md](실험-03-httpclient5.md) | Iteration 3: HttpClient 5 도입 시도 → 격리 A(롤백)/B(옵션 완비)/C(bean scope 격리)로 우회. mechanism은 미확정 |
 | [실험-05-outbox-async.md](실험-05-outbox-async.md) | Iteration 5: Outbox listener `@Async` 분리 (D 적용). 근본 병목(sync + Hikari 소진) 제거. p95 40% 개선, cascade 원천 차단 |
+| [실험-06-hc5-격리해제.md](실험-06-hc5-격리해제.md) | Iteration 6: 실험-05 상태에서 HC5 bean 격리 해제 재부하. 안정 유지 확인 → 실험-03의 mechanism 미스터리 자연 해소. 격리는 아키텍처 이유로만 유지 |
 
 각 실험 문서는 **self-contained**: 그 시점 시스템 상태 + 결과 + 병목 + 다음 개선안을 하나 안에.
 
@@ -33,6 +34,7 @@
 | 격리 B | HC5 옵션 완비 (evict/validate/keepAlive) | 부분 개선 (실패율 95% → 10%). stale connection 이슈는 부분 원인이었지만 근본 원인 아님 | (미측정) | 57.79s | 10.10% | (실험-03 § 3.2) |
 | 격리 C | HC5 옵션 완비 + bean scope 격리 (worker 전용) | **안정 확보** (실험-02와 동등). bean이 app-api에 존재하는 것 자체가 원인이었음. Mechanism 미확정 | (미측정) | **12.65ms** | 0.00% | (실험-03 § 3.3) |
 | 05 | 격리 C + Outbox `@Async` 분리 (D 적용) | **근본 병목 제거**. Hikari active 대부분 0~1 (max 6), pending 계속 0 (이전 20/20 소진 + 22 대기). p95 40% 개선. cascade 원천 차단 | (미측정) | **7.58ms** | 0.00% | [실험-05](실험-05-outbox-async.md) |
+| 06 | 05 + HC5 bean 격리 해제 (`MockSendApiClient` `@ConditionalOnProperty` 제거) | **가설 확정**: 실험-03 mechanism 미스터리 자연 해소. HC5는 sync 병목의 방아쇠였을 뿐, 자체 문제 아님. 안정성 지표 동등 이상 | (미측정) | **6.95ms** | 0.00% | [실험-06](실험-06-hc5-격리해제.md) |
 
 ## 스크린샷
 
@@ -50,15 +52,14 @@
 
 ## 아직 진행하지 않은 것
 
-- **실험-06**: 격리 C 해제 후 재부하 (실험-05로 근본 병목 사라졌으니 HC5 bean이 app-api에 있어도 안정할지 검증. 실험-03의 mechanism 미스터리 자연 해소 여부 확인)
-- **p99 tail latency 개선** (재현 확인 후): Kafka producer async batch → GC 튜닝(G1 → ZGC) 순
-- 후속 학습 과제: HC5 mechanism JFR 프로파일링 / 소스 분석 / bean-by-bean 세밀 격리
-- 후보: non-blocking 전면 전환 (WebFlux + R2DBC + Reactor Kafka) — 오버킬 가능성 크므로 학습 목적 외에는 스코프 밖
+- **p99 tail latency 개선** (실험-05의 p99 44ms는 실험-06 결과 노이즈 가능성 큼. 우선순위 낮음)
+  - 재현 확인 후에만 착수: Kafka producer async batch → GC 튜닝(G1 → ZGC) 순
 - Stress (tuned 상태에서 붕괴 지점 확인, management 포트 격리 효과 검증)
 - Spike (회복력)
 - Circuit Breaker (Resilience4j) 도입 실험
 - 멀티 워커 스케일 실험 (`--scale app-worker=3`)
 - Soak (장기 누적)
+- 후보: non-blocking 전면 전환 (WebFlux + R2DBC + Reactor Kafka) — 이 프로젝트 스코프에선 오버킬
 
 ## 스코프 밖
 

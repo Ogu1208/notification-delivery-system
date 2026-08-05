@@ -358,14 +358,20 @@ Worker 대비 24개 스레드 차이 중 대부분은 Kafka consumer 관련(-6, 
 - 검증된 결과: p95 12.65 ms / p99 37.22 ms / 실패율 0% (실험-02와 동등)
 - HC5의 방향성(코드리뷰 지적) 유효, 배치만 조정한 형태
 
-### 미확정으로 남긴 것
+### 미확정으로 남겼던 것 (실험-06에서 해소됨)
 
-**"왜 app-api에 HC5 bean이 있는 것만으로 무너지는가"의 정확한 mechanism은 미확정.**
+**"왜 app-api에 HC5 bean이 있는 것만으로 무너지는가"의 정확한 mechanism은 이 실험 시점에는 미확정으로 남겼음.**
 
-- Thread dump / CPU / heap / GC / metaspace 같은 표준 지표로는 명확한 원인이 잡히지 않음
-- 확실한 것: HC5 bean이 app-api에서 사라지면 안정 확보 (empirical fact)
-- 규명하려면 JFR 프로파일링 / HC5 소스 심층 분석 / bean-by-bean 세밀 격리 실험 등의 추가 노력 필요
-- 이 프로젝트 범위에서는 empirical fact로 진행하고, mechanism 규명은 후속 학습 과제로 남김
+- Thread dump / CPU / heap / GC / metaspace 같은 표준 지표로는 명확한 원인이 잡히지 않았음
+- 확실한 것은 HC5 bean이 app-api에서 사라지면 안정 확보 (empirical fact)
+- 규명하려면 JFR 프로파일링 / HC5 소스 심층 분석 / bean-by-bean 세밀 격리 실험 등이 필요할 것으로 예상
+
+**이 미스터리는 [실험-06](실험-06-hc5-격리해제.md)에서 자연 해소됨**. 근본 병목(sync outbox listener)이 [실험-05](실험-05-outbox-async.md)로 제거된 상태에서 HC5 bean 격리를 다시 해제해 재부하한 결과, 안정성이 유지되었음. 즉:
+
+- HC5 자체가 시스템을 무너뜨린 것이 아님
+- HC5의 소소한 부하가 sync outbox listener라는 취약점을 **tip over 방아쇠**로 작동시켰던 것
+- 두 조건("HC5 bean이 app-api에 존재" + "sync outbox listener")의 **조합**에서만 붕괴 발생
+- 근본 병목이 제거되면 방아쇠가 있어도 무해
 
 ### 관련 배경: outbox listener sync 실행 취약점
 

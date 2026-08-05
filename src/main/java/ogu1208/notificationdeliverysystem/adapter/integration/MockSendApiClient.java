@@ -34,9 +34,9 @@ import ogu1208.notificationdeliverysystem.application.notification.required.Exte
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
 
-// Mock 발송 관련 HTTP 클라이언트는 실제로 mock을 호출하는 worker 컨테이너에만 필요.
-// app-api에는 bean 자체 생성 안 하도록 조건부 등록.
-// HC5의 백그라운드 활동(evictor 스레드 등)이 app-api의 요청 처리에 영향을 주는 가설 검증.
+// Mock 발송은 worker 노드의 관심사. HC5 pool과 관련 리소스는 실제 호출하는
+// worker 컨테이너에만 생성. 실험-06으로 성능 관점의 격리 필요성은 해소되었으나,
+// 역할 분리 원칙과 향후 멀티모듈(app-api / app-worker) 전환 방향에 맞춰 유지.
 @Component
 @ConditionalOnProperty(name = "notification.role.worker-enabled", havingValue = "true")
 public class MockSendApiClient {

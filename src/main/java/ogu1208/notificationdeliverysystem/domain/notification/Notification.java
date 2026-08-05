@@ -12,6 +12,7 @@ import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
@@ -24,7 +25,11 @@ import ogu1208.notificationdeliverysystem.domain.common.BaseEntity;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(
 	name = "notification",
-	uniqueConstraints = @UniqueConstraint(name = "uk_notification_request_id", columnNames = "requestId")
+	uniqueConstraints = @UniqueConstraint(name = "uk_notification_request_id", columnNames = "requestId"),
+	indexes = {
+		@Index(name = "idx_notification_requester_created", columnList = "requesterId, createdAt"),
+		@Index(name = "idx_notification_receiver_created", columnList = "receiver, createdAt")
+	}
 )
 public class Notification extends BaseEntity {
 
@@ -32,7 +37,7 @@ public class Notification extends BaseEntity {
 	@AttributeOverride(name = "value", column = @Column(name = "requestId", nullable = false))
 	private RequestId requestId;
 
-	@Column(name = "requesterId", nullable = false)
+	@Column(nullable = false)
 	private String requesterId;
 
 	private String receiver;

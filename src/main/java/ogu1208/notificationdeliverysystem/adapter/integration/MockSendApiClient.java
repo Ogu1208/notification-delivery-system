@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpResponse;
@@ -33,7 +34,11 @@ import ogu1208.notificationdeliverysystem.application.notification.required.Exte
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
 
+// Mock 발송 관련 HTTP 클라이언트는 실제로 mock을 호출하는 worker 컨테이너에만 필요.
+// app-api에는 bean 자체 생성 안 하도록 조건부 등록.
+// HC5의 백그라운드 활동(evictor 스레드 등)이 app-api의 요청 처리에 영향을 주는 가설 검증.
 @Component
+@ConditionalOnProperty(name = "notification.role.worker-enabled", havingValue = "true")
 public class MockSendApiClient {
 
 	private static final Logger log = LoggerFactory.getLogger(MockSendApiClient.class);

@@ -2,6 +2,7 @@ package ogu1208.notificationdeliverysystem.application.notification;
 
 import java.time.LocalDateTime;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ import ogu1208.notificationdeliverysystem.domain.notification.event.Notification
 
 @Slf4j
 @Service
+@ConditionalOnProperty(name = "notification.role.worker-enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class NotificationDispatchService implements NotificationSender {
 

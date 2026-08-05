@@ -4,6 +4,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
@@ -11,6 +12,7 @@ import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
 
 @Component
+@ConditionalOnProperty(name = "notification.role.worker-enabled", havingValue = "true")
 public class MockNotificationSenderRouter implements ExternalNotificationSender {
 
 	private final Map<NotificationChannel, MockChannelSender> senders;

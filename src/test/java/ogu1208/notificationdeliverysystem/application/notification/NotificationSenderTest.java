@@ -21,6 +21,7 @@ import ogu1208.notificationdeliverysystem.application.notification.required.Disp
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSendException;
 import ogu1208.notificationdeliverysystem.application.notification.required.ExternalNotificationSender;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
+import ogu1208.notificationdeliverysystem.application.notification.search.NotificationSearchQuery;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
@@ -217,6 +218,11 @@ class NotificationSenderTest {
 
 		@Override
 		public List<Notification> findRetryWaitDue(LocalDateTime now, int limit) {
+			return List.of();
+		}
+
+		@Override
+		public List<Notification> search(NotificationSearchQuery query, int fetchSize) {
 			return List.of();
 		}
 	}

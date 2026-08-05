@@ -5,9 +5,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture.createNotification;
 import static ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture.createRequest;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -16,9 +20,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
+import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationFinder;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
+import ogu1208.notificationdeliverysystem.application.notification.search.NotificationSearchCursor;
+import ogu1208.notificationdeliverysystem.application.notification.search.NotificationSearchResult;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
 
@@ -33,6 +41,9 @@ class NotificationApiTest {
 
 	@MockitoBean
 	private NotificationRegister notificationRegister;
+
+	@MockitoBean
+	private NotificationFinder notificationFinder;
 
 	@Test
 	@DisplayName("알림 등록 요청을 provided port에 전달하고 접수 응답을 반환한다")
@@ -96,6 +107,41 @@ class NotificationApiTest {
 			.andExpect(jsonPath("$.status").value(400))
 			.andExpect(jsonPath("$.detail").value("수신자는 필수입니다"))
 			.andExpect(jsonPath("$.timestamp").exists())
+			.andExpect(jsonPath("$.exception").value("IllegalArgumentException"));
+	}
+
+	@Test
+	@DisplayName("GET /notifications는 검색 결과와 nextCursor를 반환한다")
+	void searchReturnsItemsAndCursor() throws Exception {
+		Notification notification = createNotification(1L);
+		ReflectionTestUtils.setField(notification, "createdAt", LocalDateTime.of(2026, 8, 1, 12, 34, 56));
+		NotificationSearchCursor cursor = new NotificationSearchCursor(
+			LocalDateTime.of(2026, 8, 1, 12, 34, 56),
+			1L
+		);
+		when(notificationFinder.search(any()))
+			.thenReturn(new NotificationSearchResult(List.of(notification), cursor));
+
+		mockMvc.perform(get("/notifications")
+				.param("requesterId", "requester-001")
+				.param("limit", "1"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.items.length()").value(1))
+			.andExpect(jsonPath("$.items[0].id").value(1))
+			.andExpect(jsonPath("$.items[0].requesterId").value("requester-001"))
+			.andExpect(jsonPath("$.items[0].receiver").value("user@example.com"))
+			.andExpect(jsonPath("$.nextCursor").value(cursor.encode()));
+	}
+
+	@Test
+	@DisplayName("requesterId와 receiver가 동시에 있으면 400 ProblemDetail 응답을 반환한다")
+	void searchRejectsBothKeys() throws Exception {
+		mockMvc.perform(get("/notifications")
+				.param("requesterId", "requester-001")
+				.param("receiver", "user@example.com"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.status").value(400))
+			.andExpect(jsonPath("$.detail").value("요청자 또는 수신자 중 정확히 하나를 지정해야 합니다"))
 			.andExpect(jsonPath("$.exception").value("IllegalArgumentException"));
 	}
 }

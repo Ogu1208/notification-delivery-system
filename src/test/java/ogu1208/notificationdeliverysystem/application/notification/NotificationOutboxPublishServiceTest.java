@@ -22,6 +22,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
+import ogu1208.notificationdeliverysystem.application.notification.search.NotificationSearchQuery;
 import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.outbox.OutboxAggregateType;
@@ -241,6 +242,11 @@ class NotificationOutboxPublishServiceTest {
 
 		@Override
 		public List<Notification> findRetryWaitDue(LocalDateTime now, int limit) {
+			return List.of();
+		}
+
+		@Override
+		public List<Notification> search(NotificationSearchQuery query, int fetchSize) {
 			return List.of();
 		}
 	}

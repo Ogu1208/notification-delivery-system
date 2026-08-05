@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import ogu1208.notificationdeliverysystem.application.notification.search.NotificationSearchQuery;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 
 public interface NotificationRepository {
@@ -15,4 +16,6 @@ public interface NotificationRepository {
 	Optional<Notification> findByRequestId(String requestId);
 
 	List<Notification> findRetryWaitDue(LocalDateTime now, int limit);
+
+	List<Notification> search(NotificationSearchQuery query, int fetchSize);
 }

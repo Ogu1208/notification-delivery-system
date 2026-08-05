@@ -18,6 +18,7 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationMessagePublisher;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
+import ogu1208.notificationdeliverysystem.application.notification.search.NotificationSearchQuery;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
 import ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture;
@@ -107,6 +108,11 @@ class NotificationRetryPublishServiceTest {
 				.filter(notification -> !notification.getNextRetryAt().isAfter(now))
 				.limit(limit)
 				.toList();
+		}
+
+		@Override
+		public List<Notification> search(NotificationSearchQuery query, int fetchSize) {
+			return List.of();
 		}
 	}
 

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
+import ogu1208.notificationdeliverysystem.application.notification.search.NotificationSearchQuery;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
 
@@ -17,6 +18,7 @@ import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus
 public class NotificationPersistenceAdapter implements NotificationRepository {
 
 	private final NotificationJpaRepository notificationJpaRepository;
+	private final NotificationSearchDao notificationSearchDao;
 
 	@Override
 	public Notification save(Notification notification) {
@@ -40,5 +42,10 @@ public class NotificationPersistenceAdapter implements NotificationRepository {
 			now,
 			PageRequest.of(0, limit)
 		);
+	}
+
+	@Override
+	public List<Notification> search(NotificationSearchQuery query, int fetchSize) {
+		return notificationSearchDao.search(query, fetchSize);
 	}
 }

@@ -16,6 +16,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
 import ogu1208.notificationdeliverysystem.application.notification.required.NotificationRepository;
+import ogu1208.notificationdeliverysystem.application.notification.search.NotificationSearchQuery;
 import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventNotifier;
 import ogu1208.notificationdeliverysystem.application.notification.required.OutboxEventRepository;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
@@ -132,6 +133,11 @@ class NotificationRegisterTest {
 
 		@Override
 		public List<Notification> findRetryWaitDue(LocalDateTime now, int limit) {
+			return List.of();
+		}
+
+		@Override
+		public List<Notification> search(NotificationSearchQuery query, int fetchSize) {
 			return List.of();
 		}
 	}

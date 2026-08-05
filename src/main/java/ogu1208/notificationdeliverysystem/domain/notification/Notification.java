@@ -32,6 +32,9 @@ public class Notification extends BaseEntity {
 	@AttributeOverride(name = "value", column = @Column(name = "requestId", nullable = false))
 	private RequestId requestId;
 
+	@Column(name = "requesterId", nullable = false)
+	private String requesterId;
+
 	private String receiver;
 
 	@Enumerated(EnumType.STRING)
@@ -68,6 +71,8 @@ public class Notification extends BaseEntity {
 
 	private Notification(NotificationRegisterRequest request) {
 		this.requestId = new RequestId(request.requestId());
+		hasText(request.requesterId(), "요청자는 필수입니다");
+		this.requesterId = request.requesterId();
 		hasText(request.receiver(), "수신자는 필수입니다");
 		this.receiver = request.receiver();
 		this.channel = requireNonNull(request.channel(), "발송 채널은 필수입니다");

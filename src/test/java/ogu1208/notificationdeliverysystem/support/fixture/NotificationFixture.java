@@ -11,6 +11,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 public class NotificationFixture {
 
 	private String requestId = "req-001";
+	private String requesterId = "requester-001";
 	private String receiver = "user@example.com";
 	private NotificationChannel channel = NotificationChannel.EMAIL;
 	private String title = "welcome";
@@ -35,11 +36,16 @@ public class NotificationFixture {
 	}
 
 	public NotificationRegisterRequest build() {
-		return new NotificationRegisterRequest(requestId, receiver, channel, title, content);
+		return new NotificationRegisterRequest(requestId, requesterId, receiver, channel, title, content);
 	}
 
 	public NotificationFixture withRequestId(String requestId) {
 		this.requestId = requestId;
+		return this;
+	}
+
+	public NotificationFixture withRequesterId(String requesterId) {
+		this.requesterId = requesterId;
 		return this;
 	}
 

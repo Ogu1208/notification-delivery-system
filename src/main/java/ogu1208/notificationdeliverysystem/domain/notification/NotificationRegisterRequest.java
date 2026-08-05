@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 
 public record NotificationRegisterRequest(
 	@NotBlank(message = "요청 ID는 필수입니다") String requestId,
+	@NotBlank(message = "요청자는 필수입니다") String requesterId,
 	@NotBlank(message = "수신자는 필수입니다") String receiver,
 	@NotNull(message = "발송 채널은 필수입니다") NotificationChannel channel,
 	@NotBlank(message = "제목은 필수입니다") String title,

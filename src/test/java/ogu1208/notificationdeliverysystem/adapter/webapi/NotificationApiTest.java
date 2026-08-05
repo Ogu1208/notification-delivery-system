@@ -60,6 +60,7 @@ class NotificationApiTest {
 				.content("""
 					{
 					  "requestId": " ",
+					  "requesterId": "requester-001",
 					  "receiver": "user@example.com",
 					  "channel": "EMAIL",
 					  "title": "welcome",
@@ -84,6 +85,7 @@ class NotificationApiTest {
 				.content("""
 					{
 					  "requestId": "req-001",
+					  "requesterId": "requester-001",
 					  "receiver": "user@example.com",
 					  "channel": "EMAIL",
 					  "title": "welcome",

@@ -19,6 +19,7 @@ class NotificationTest {
 		Notification notification = Notification.register(createRequest());
 
 		assertThat(notification.getRequestId()).isEqualTo(new RequestId("req-001"));
+		assertThat(notification.getRequesterId()).isEqualTo("requester-001");
 		assertThat(notification.getReceiver()).isEqualTo("user@example.com");
 		assertThat(notification.getChannel()).isEqualTo(NotificationChannel.EMAIL);
 		assertThat(notification.getStatus()).isEqualTo(NotificationStatus.PENDING);
@@ -31,6 +32,9 @@ class NotificationTest {
 		assertThatThrownBy(() -> Notification.register(NotificationFixture.builder().withRequestId(" ").build()))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("요청 ID는 필수입니다");
+		assertThatThrownBy(() -> Notification.register(NotificationFixture.builder().withRequesterId(" ").build()))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("요청자는 필수입니다");
 		assertThatThrownBy(() -> Notification.register(NotificationFixture.builder().withReceiver(" ").build()))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("수신자는 필수입니다");

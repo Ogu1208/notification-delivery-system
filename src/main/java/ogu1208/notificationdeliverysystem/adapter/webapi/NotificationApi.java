@@ -1,24 +1,20 @@
 package ogu1208.notificationdeliverysystem.adapter.webapi;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Set;
 
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import ogu1208.notificationdeliverysystem.adapter.webapi.dto.NotificationRegisterResponse;
+import ogu1208.notificationdeliverysystem.adapter.webapi.dto.NotificationSearchParams;
 import ogu1208.notificationdeliverysystem.adapter.webapi.dto.NotificationSearchResponse;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationFinder;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
@@ -31,12 +27,10 @@ import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus
 
 @RestController
 @RequiredArgsConstructor
-@Validated
 public class NotificationApi {
 
 	private static final int DEFAULT_WINDOW_DAYS = 7;
 	private static final int DEFAULT_LIMIT = 20;
-	private static final int MAX_LIMIT = 100;
 
 	private final NotificationRegister notificationRegister;
 	private final NotificationFinder notificationFinder;
@@ -50,22 +44,19 @@ public class NotificationApi {
 	}
 
 	@GetMapping("/notifications")
-	public NotificationSearchResponse search(
-		@RequestParam(required = false) String requesterId,
-		@RequestParam(required = false) String receiver,
-		@RequestParam(name = "status", required = false) List<NotificationStatus> statuses,
-		@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
-		@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-		@RequestParam(required = false) String cursor,
-		@RequestParam(defaultValue = "" + DEFAULT_LIMIT) @Min(1) @Max(MAX_LIMIT) int limit
-	) {
-		LocalDateTime resolvedTo = to != null ? to : LocalDateTime.now();
-		LocalDateTime resolvedFrom = from != null ? from : resolvedTo.minusDays(DEFAULT_WINDOW_DAYS);
-		Set<NotificationStatus> statusSet = statuses == null ? Set.of() : Set.copyOf(statuses);
-		NotificationSearchCursor searchCursor = cursor == null ? null : NotificationSearchCursor.decode(cursor);
+	public NotificationSearchResponse search(@Valid @ModelAttribute NotificationSearchParams params) {
+		LocalDateTime resolvedTo = params.to() != null ? params.to() : LocalDateTime.now();
+		LocalDateTime resolvedFrom = params.from() != null
+			? params.from()
+			: resolvedTo.minusDays(DEFAULT_WINDOW_DAYS);
+		Set<NotificationStatus> statusSet = params.status() == null ? Set.of() : Set.copyOf(params.status());
+		NotificationSearchCursor searchCursor = params.cursor() == null
+			? null
+			: NotificationSearchCursor.decode(params.cursor());
+		int limit = params.limit() != null ? params.limit() : DEFAULT_LIMIT;
 
 		NotificationSearchQuery query = new NotificationSearchQuery(
-			requesterId, receiver, statusSet, resolvedFrom, resolvedTo, searchCursor, limit
+			params.requesterId(), params.receiver(), statusSet, resolvedFrom, resolvedTo, searchCursor, limit
 		);
 		NotificationSearchResult result = notificationFinder.search(query);
 		return NotificationSearchResponse.from(result);

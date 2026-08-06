@@ -133,6 +133,18 @@ public class Notification extends BaseEntity {
 		this.failureReason = failureReason;
 	}
 
+	/**
+	 * 관리자가 DEAD 상태 알림을 수동으로 다시 재시도 대기열에 올린다.
+	 *
+	 * <p>즉시 poller가 픽업하도록 {@code nextRetryAt}을 현재 시각으로 설정한다.
+	 * 이력 관점에서 {@code retryCount}, {@code lastError} 등은 유지한다.
+	 */
+	public void resurrectForRetry() {
+		state(status == NotificationStatus.DEAD, "DEAD 상태의 알림만 수동 재시도할 수 있습니다");
+		changeStatusTo(NotificationStatus.RETRY_WAIT);
+		this.nextRetryAt = LocalDateTime.now();
+	}
+
 	public boolean isCompleted() {
 		return status.isCompleted();
 	}

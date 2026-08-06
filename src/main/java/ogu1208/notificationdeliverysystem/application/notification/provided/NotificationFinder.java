@@ -9,4 +9,6 @@ public interface NotificationFinder {
 	NotificationSearchResult search(NotificationSearchQuery query);
 
 	Notification findById(Long id);
+
+	Notification findByRequestId(String requestId);
 }

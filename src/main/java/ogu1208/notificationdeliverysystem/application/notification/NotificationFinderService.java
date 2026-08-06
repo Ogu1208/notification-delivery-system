@@ -39,6 +39,13 @@ public class NotificationFinderService implements NotificationFinder {
 			.orElseThrow(() -> new NotificationNotFoundException(id));
 	}
 
+	@Override
+	@Transactional(readOnly = true)
+	public Notification findByRequestId(String requestId) {
+		return notificationRepository.findByRequestId(requestId)
+			.orElseThrow(() -> NotificationNotFoundException.byRequestId(requestId));
+	}
+
 	private NotificationSearchCursor toCursor(Notification last) {
 		return new NotificationSearchCursor(last.getCreatedAt(), last.getId());
 	}

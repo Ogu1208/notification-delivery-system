@@ -170,4 +170,29 @@ class NotificationApiTest {
 			.andExpect(jsonPath("$.detail").value("알림을 찾을 수 없습니다. notificationId=999"))
 			.andExpect(jsonPath("$.exception").value("NotificationNotFoundException"));
 	}
+
+	@Test
+	@DisplayName("GET /notifications/by-request/{requestId}는 단건 상세를 반환한다")
+	void detailByRequestIdReturnsSingleNotification() throws Exception {
+		Notification notification = createNotification(1L);
+		when(notificationFinder.findByRequestId("req-001")).thenReturn(notification);
+
+		mockMvc.perform(get("/notifications/by-request/req-001"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.id").value(1))
+			.andExpect(jsonPath("$.requestId").value("req-001"));
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 requestId 상세 조회는 404 ProblemDetail 응답을 반환한다")
+	void detailByRequestIdReturns404WhenMissing() throws Exception {
+		when(notificationFinder.findByRequestId("req-missing"))
+			.thenThrow(NotificationNotFoundException.byRequestId("req-missing"));
+
+		mockMvc.perform(get("/notifications/by-request/req-missing"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.status").value(404))
+			.andExpect(jsonPath("$.detail").value("알림을 찾을 수 없습니다. requestId=req-missing"))
+			.andExpect(jsonPath("$.exception").value("NotificationNotFoundException"));
+	}
 }

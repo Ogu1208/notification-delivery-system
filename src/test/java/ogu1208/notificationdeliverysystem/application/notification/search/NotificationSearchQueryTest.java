@@ -21,7 +21,7 @@ class NotificationSearchQueryTest {
 	@DisplayName("요청자와 수신자가 모두 없으면 예외를 던진다")
 	void rejectsWhenNeitherKeyPresent() {
 		assertThatThrownBy(() -> new NotificationSearchQuery(
-			null, null, Set.of(), from, to, null, 20
+			null, null, Set.of(), Set.of(), from, to, null, 20
 		)).isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("요청자 또는 수신자 중 최소 하나는 지정해야 합니다");
 	}
@@ -30,7 +30,7 @@ class NotificationSearchQueryTest {
 	@DisplayName("요청자와 수신자를 함께 지정하는 것도 허용된다")
 	void acceptsBothKeys() {
 		NotificationSearchQuery query = new NotificationSearchQuery(
-			"requester-1", "user@example.com", Set.of(), from, to, null, 20
+			"requester-1", "user@example.com", Set.of(), Set.of(), from, to, null, 20
 		);
 
 		assertThat(query.hasRequester()).isTrue();
@@ -41,12 +41,12 @@ class NotificationSearchQueryTest {
 	@DisplayName("limit이 허용 범위를 벗어나면 예외를 던진다")
 	void rejectsInvalidLimit() {
 		assertThatThrownBy(() -> new NotificationSearchQuery(
-			"requester-1", null, Set.of(), from, to, null, 0
+			"requester-1", null, Set.of(), Set.of(), from, to, null, 0
 		)).isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("limit은 1..100 범위여야 합니다");
 
 		assertThatThrownBy(() -> new NotificationSearchQuery(
-			"requester-1", null, Set.of(), from, to, null, 101
+			"requester-1", null, Set.of(), Set.of(), from, to, null, 101
 		)).isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("limit은 1..100 범위여야 합니다");
 	}
@@ -55,7 +55,7 @@ class NotificationSearchQueryTest {
 	@DisplayName("from은 to보다 앞선 시각이어야 한다")
 	void rejectsInvalidRange() {
 		assertThatThrownBy(() -> new NotificationSearchQuery(
-			"requester-1", null, Set.of(), to, from, null, 20
+			"requester-1", null, Set.of(), Set.of(), to, from, null, 20
 		)).isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("from은 to보다 앞선 시각이어야 합니다");
 	}
@@ -65,7 +65,7 @@ class NotificationSearchQueryTest {
 	void statusesAreDefensivelyCopied() {
 		EnumSet<NotificationStatus> input = EnumSet.of(NotificationStatus.SENT);
 		NotificationSearchQuery query = new NotificationSearchQuery(
-			"requester-1", null, input, from, to, null, 20
+			"requester-1", null, input, Set.of(), from, to, null, 20
 		);
 
 		assertThat(query.statuses()).containsExactly(NotificationStatus.SENT);

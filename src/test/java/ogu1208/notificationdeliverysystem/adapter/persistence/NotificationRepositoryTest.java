@@ -110,7 +110,7 @@ class NotificationRepositoryTest {
 
 		LocalDateTime now = LocalDateTime.now();
 		NotificationSearchQuery query = new NotificationSearchQuery(
-			"requester-A", null, Set.of(),
+			"requester-A", null, Set.of(), Set.of(),
 			now.minusDays(1), now.plusDays(1),
 			null, 20
 		);
@@ -135,7 +135,7 @@ class NotificationRepositoryTest {
 		entityManager.clear();
 
 		NotificationSearchQuery query = new NotificationSearchQuery(
-			"requester-A", null, Set.of(),
+			"requester-A", null, Set.of(), Set.of(),
 			now.minusDays(1), now.plusDays(1),
 			null, 20
 		);
@@ -158,7 +158,7 @@ class NotificationRepositoryTest {
 		entityManager.clear();
 
 		NotificationSearchQuery query = new NotificationSearchQuery(
-			"requester-A", null, Set.of(),
+			"requester-A", null, Set.of(), Set.of(),
 			now.minusDays(1), now.plusDays(1),
 			null, 20
 		);
@@ -181,7 +181,7 @@ class NotificationRepositoryTest {
 
 		LocalDateTime now = LocalDateTime.now();
 		NotificationSearchQuery query = new NotificationSearchQuery(
-			"requester-A", "target@example.com", Set.of(),
+			"requester-A", "target@example.com", Set.of(), Set.of(),
 			now.minusDays(1), now.plusDays(1),
 			null, 20
 		);
@@ -203,7 +203,7 @@ class NotificationRepositoryTest {
 
 		LocalDateTime now = LocalDateTime.now();
 		NotificationSearchQuery query = new NotificationSearchQuery(
-			null, "target@example.com", Set.of(),
+			null, "target@example.com", Set.of(), Set.of(),
 			now.minusDays(1), now.plusDays(1),
 			null, 20
 		);
@@ -227,7 +227,7 @@ class NotificationRepositoryTest {
 
 		LocalDateTime now = LocalDateTime.now();
 		NotificationSearchQuery query = new NotificationSearchQuery(
-			"requester-001", null, Set.of(NotificationStatus.SENT),
+			"requester-001", null, Set.of(NotificationStatus.SENT), Set.of(),
 			now.minusDays(1), now.plusDays(1),
 			null, 20
 		);
@@ -237,6 +237,29 @@ class NotificationRepositoryTest {
 		assertThat(found).hasSize(1);
 		assertThat(found.get(0).getRequestId().value()).isEqualTo("req-402");
 		assertThat(pending).isNotNull(); // used only to keep visible baseline row
+	}
+
+	@Test
+	@DisplayName("채널 필터를 주면 해당 채널의 알림만 반환한다")
+	void searchWithChannelFilter() {
+		save(NotificationFixture.builder().withRequestId("req-411").withChannel(NotificationChannel.EMAIL).build());
+		save(NotificationFixture.builder().withRequestId("req-412").withChannel(NotificationChannel.SMS).build());
+		save(NotificationFixture.builder().withRequestId("req-413").withChannel(NotificationChannel.KAKAO).build());
+		entityManager.flush();
+		entityManager.clear();
+
+		LocalDateTime now = LocalDateTime.now();
+		NotificationSearchQuery query = new NotificationSearchQuery(
+			"requester-001", null, Set.of(),
+			Set.of(NotificationChannel.EMAIL, NotificationChannel.SMS),
+			now.minusDays(1), now.plusDays(1),
+			null, 20
+		);
+
+		List<Notification> found = notificationRepository.search(query, query.limit() + 1);
+
+		assertThat(found).extracting(n -> n.getRequestId().value())
+			.containsExactlyInAnyOrder("req-411", "req-412");
 	}
 
 	@Test
@@ -251,7 +274,7 @@ class NotificationRepositoryTest {
 		LocalDateTime now = LocalDateTime.now();
 		NotificationSearchCursor cursor = new NotificationSearchCursor(third.getCreatedAt(), third.getId());
 		NotificationSearchQuery query = new NotificationSearchQuery(
-			"requester-001", null, Set.of(),
+			"requester-001", null, Set.of(), Set.of(),
 			now.minusDays(1), now.plusDays(1),
 			cursor, 20
 		);

@@ -31,6 +31,9 @@ class NotificationSearchDao {
 		if (query.hasStatusFilter()) {
 			jpql.append(" and n.status in :statuses");
 		}
+		if (query.hasChannelFilter()) {
+			jpql.append(" and n.channel in :channels");
+		}
 		if (query.hasCursor()) {
 			jpql.append(" and (n.createdAt < :cursorCreatedAt")
 				.append(" or (n.createdAt = :cursorCreatedAt and n.id < :cursorId))");
@@ -49,6 +52,9 @@ class NotificationSearchDao {
 		}
 		if (query.hasStatusFilter()) {
 			typedQuery.setParameter("statuses", query.statuses());
+		}
+		if (query.hasChannelFilter()) {
+			typedQuery.setParameter("channels", query.channels());
 		}
 		if (query.hasCursor()) {
 			NotificationSearchCursor cursor = query.cursor();

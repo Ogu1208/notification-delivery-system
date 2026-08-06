@@ -7,6 +7,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
 
 /**
@@ -19,6 +20,7 @@ public record NotificationSearchParams(
 	String requesterId,
 	String receiver,
 	List<NotificationStatus> status,
+	List<NotificationChannel> channel,
 	@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
 	@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
 	String cursor,

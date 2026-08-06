@@ -111,9 +111,30 @@ class NotificationFinderServiceTest {
 			.hasMessageContaining("notificationId=999");
 	}
 
+	@Test
+	@DisplayName("findByRequestId는 저장소에서 알림을 조회해 반환한다")
+	void findByRequestIdReturnsNotification() {
+		Notification notification = notificationAt(42L, LocalDateTime.of(2026, 8, 5, 12, 0));
+		when(notificationRepository.findByRequestId("req-abc")).thenReturn(Optional.of(notification));
+
+		Notification found = notificationFinderService.findByRequestId("req-abc");
+
+		assertThat(found).isSameAs(notification);
+	}
+
+	@Test
+	@DisplayName("findByRequestId로 존재하지 않는 알림을 조회하면 NotificationNotFoundException을 던진다")
+	void findByRequestIdThrowsWhenMissing() {
+		when(notificationRepository.findByRequestId("req-missing")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> notificationFinderService.findByRequestId("req-missing"))
+			.isInstanceOf(NotificationNotFoundException.class)
+			.hasMessageContaining("requestId=req-missing");
+	}
+
 	private NotificationSearchQuery queryWithLimit(int limit) {
 		return new NotificationSearchQuery(
-			"requester-1", null, Set.of(),
+			"requester-1", null, Set.of(), Set.of(),
 			LocalDateTime.of(2026, 8, 1, 0, 0),
 			LocalDateTime.of(2026, 8, 8, 0, 0),
 			null, limit

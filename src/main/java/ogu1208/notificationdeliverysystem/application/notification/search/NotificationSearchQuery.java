@@ -5,12 +5,14 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
 
+import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
 
 public record NotificationSearchQuery(
 	String requesterId,
 	String receiver,
 	Set<NotificationStatus> statuses,
+	Set<NotificationChannel> channels,
 	LocalDateTime from,
 	LocalDateTime to,
 	NotificationSearchCursor cursor,
@@ -35,9 +37,17 @@ public record NotificationSearchQuery(
 			throw new IllegalArgumentException("limit은 1..%d 범위여야 합니다".formatted(MAX_LIMIT));
 		}
 		statuses = normalizeStatuses(statuses);
+		channels = normalizeChannels(channels);
 	}
 
 	private static Set<NotificationStatus> normalizeStatuses(Set<NotificationStatus> input) {
+		if (input == null || input.isEmpty()) {
+			return Collections.emptySet();
+		}
+		return Collections.unmodifiableSet(EnumSet.copyOf(input));
+	}
+
+	private static Set<NotificationChannel> normalizeChannels(Set<NotificationChannel> input) {
 		if (input == null || input.isEmpty()) {
 			return Collections.emptySet();
 		}
@@ -54,6 +64,10 @@ public record NotificationSearchQuery(
 
 	public boolean hasStatusFilter() {
 		return !statuses.isEmpty();
+	}
+
+	public boolean hasChannelFilter() {
+		return !channels.isEmpty();
 	}
 
 	public boolean hasCursor() {

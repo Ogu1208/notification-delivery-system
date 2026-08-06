@@ -24,6 +24,7 @@ import ogu1208.notificationdeliverysystem.application.notification.search.Notifi
 import ogu1208.notificationdeliverysystem.application.notification.search.NotificationSearchQuery;
 import ogu1208.notificationdeliverysystem.application.notification.search.NotificationSearchResult;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
+import ogu1208.notificationdeliverysystem.domain.notification.NotificationChannel;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationStatus;
 
@@ -51,6 +52,12 @@ public class NotificationApi {
 		return NotificationDetailResponse.from(notification);
 	}
 
+	@GetMapping("/notifications/by-request/{requestId}")
+	public NotificationDetailResponse detailByRequestId(@PathVariable String requestId) {
+		Notification notification = notificationFinder.findByRequestId(requestId);
+		return NotificationDetailResponse.from(notification);
+	}
+
 	@GetMapping("/notifications")
 	public NotificationSearchResponse search(@Valid @ModelAttribute NotificationSearchParams params) {
 		LocalDateTime resolvedTo = params.to() != null ? params.to() : LocalDateTime.now();
@@ -58,13 +65,15 @@ public class NotificationApi {
 			? params.from()
 			: resolvedTo.minusDays(DEFAULT_WINDOW_DAYS);
 		Set<NotificationStatus> statusSet = params.status() == null ? Set.of() : Set.copyOf(params.status());
+		Set<NotificationChannel> channelSet = params.channel() == null ? Set.of() : Set.copyOf(params.channel());
 		NotificationSearchCursor searchCursor = params.cursor() == null
 			? null
 			: NotificationSearchCursor.decode(params.cursor());
 		int limit = params.limit() != null ? params.limit() : DEFAULT_LIMIT;
 
 		NotificationSearchQuery query = new NotificationSearchQuery(
-			params.requesterId(), params.receiver(), statusSet, resolvedFrom, resolvedTo, searchCursor, limit
+			params.requesterId(), params.receiver(), statusSet, channelSet,
+			resolvedFrom, resolvedTo, searchCursor, limit
 		);
 		NotificationSearchResult result = notificationFinder.search(query);
 		return NotificationSearchResponse.from(result);

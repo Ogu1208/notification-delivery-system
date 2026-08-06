@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import jakarta.validation.ConstraintViolationException;
+
 @RestControllerAdvice
 public class ApiControllerAdvice extends ResponseEntityExceptionHandler {
 
@@ -38,6 +40,16 @@ public class ApiControllerAdvice extends ResponseEntityExceptionHandler {
 	})
 	public ProblemDetail handleBadRequestException(RuntimeException exception) {
 		return getProblemDetail(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+	}
+
+	@ExceptionHandler(ConstraintViolationException.class)
+	public ProblemDetail handleConstraintViolation(ConstraintViolationException exception) {
+		String description = exception.getConstraintViolations().stream()
+			.findFirst()
+			.map(violation -> violation.getPropertyPath() + " " + violation.getMessage())
+			.orElse("요청 값이 올바르지 않습니다");
+
+		return getProblemDetail(HttpStatus.BAD_REQUEST, description, exception);
 	}
 
 	@ExceptionHandler(Exception.class)

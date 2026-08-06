@@ -29,6 +29,8 @@ dependencies {
     // Apache HttpClient 5: RestClient의 HTTP 엔진 교체.
     // JDK HttpURLConnection 대신 사용해 커넥션 풀, timeout, 정리 정책을 명시적으로 관리.
     implementation("org.apache.httpcomponents.client5:httpclient5")
+    // OpenAPI 3 문서 자동 생성 + Swagger UI. /swagger-ui.html 에서 접근.
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0")
     compileOnly("org.projectlombok:lombok")
     developmentOnly("org.springframework.boot:spring-boot-docker-compose")
     runtimeOnly("com.h2database:h2")

@@ -134,14 +134,12 @@ class NotificationApiTest {
 	}
 
 	@Test
-	@DisplayName("requesterId와 receiver가 동시에 있으면 400 ProblemDetail 응답을 반환한다")
-	void searchRejectsBothKeys() throws Exception {
-		mockMvc.perform(get("/notifications")
-				.param("requesterId", "requester-001")
-				.param("receiver", "user@example.com"))
+	@DisplayName("requesterId와 receiver가 모두 없으면 400 ProblemDetail 응답을 반환한다")
+	void searchRejectsWhenNoKeyProvided() throws Exception {
+		mockMvc.perform(get("/notifications"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.status").value(400))
-			.andExpect(jsonPath("$.detail").value("요청자 또는 수신자 중 정확히 하나를 지정해야 합니다"))
+			.andExpect(jsonPath("$.detail").value("요청자 또는 수신자 중 최소 하나는 지정해야 합니다"))
 			.andExpect(jsonPath("$.exception").value("IllegalArgumentException"));
 	}
 }

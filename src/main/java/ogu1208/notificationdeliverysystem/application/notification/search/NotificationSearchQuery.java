@@ -22,8 +22,8 @@ public record NotificationSearchQuery(
 	public NotificationSearchQuery {
 		boolean hasRequester = requesterId != null && !requesterId.isBlank();
 		boolean hasReceiver = receiver != null && !receiver.isBlank();
-		if (hasRequester == hasReceiver) {
-			throw new IllegalArgumentException("요청자 또는 수신자 중 정확히 하나를 지정해야 합니다");
+		if (!hasRequester && !hasReceiver) {
+			throw new IllegalArgumentException("요청자 또는 수신자 중 최소 하나는 지정해야 합니다");
 		}
 		if (from == null || to == null) {
 			throw new IllegalArgumentException("조회 기간 from, to는 필수입니다");
@@ -46,6 +46,10 @@ public record NotificationSearchQuery(
 
 	public boolean hasRequester() {
 		return requesterId != null && !requesterId.isBlank();
+	}
+
+	public boolean hasReceiver() {
+		return receiver != null && !receiver.isBlank();
 	}
 
 	public boolean hasStatusFilter() {

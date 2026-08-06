@@ -100,8 +100,8 @@ class NotificationRepositoryTest {
 	}
 
 	@Test
-	@DisplayName("요청자 기준 조회는 기간 안의 알림만 최신순으로 반환한다")
-	void searchByRequesterOrdersDesc() {
+	@DisplayName("요청자 기준 조회는 다른 요청자의 알림을 제외한다")
+	void searchByRequesterExcludesOtherRequesters() {
 		saveWith("req-201", "requester-A", "user1@example.com");
 		saveWith("req-202", "requester-A", "user2@example.com");
 		saveWith("req-203", "requester-B", "user3@example.com");
@@ -118,7 +118,78 @@ class NotificationRepositoryTest {
 		List<Notification> found = notificationRepository.search(query, query.limit() + 1);
 
 		assertThat(found).extracting(n -> n.getRequestId().value())
-			.containsExactly("req-202", "req-201");
+			.containsExactlyInAnyOrder("req-201", "req-202");
+	}
+
+	@Test
+	@DisplayName("요청자 기준 조회는 from/to 범위 밖의 알림을 제외한다")
+	void searchByRequesterExcludesOutOfDateRange() {
+		LocalDateTime now = LocalDateTime.now();
+		Notification inRange1 = saveWith("req-211", "requester-A", "user1@example.com");
+		Notification inRange2 = saveWith("req-212", "requester-A", "user2@example.com");
+		Notification beforeRange = saveWith("req-213", "requester-A", "user3@example.com");
+		Notification afterRange = saveWith("req-214", "requester-A", "user4@example.com");
+		overrideCreatedAt(beforeRange.getId(), now.minusDays(30));
+		overrideCreatedAt(afterRange.getId(), now.plusDays(30));
+		entityManager.flush();
+		entityManager.clear();
+
+		NotificationSearchQuery query = new NotificationSearchQuery(
+			"requester-A", null, Set.of(),
+			now.minusDays(1), now.plusDays(1),
+			null, 20
+		);
+
+		List<Notification> found = notificationRepository.search(query, query.limit() + 1);
+
+		assertThat(found).extracting(n -> n.getRequestId().value())
+			.containsExactlyInAnyOrder("req-211", "req-212");
+	}
+
+	@Test
+	@DisplayName("요청자 기준 조회는 createdAt DESC로 최신순 정렬한다")
+	void searchByRequesterOrdersByCreatedAtDesc() {
+		LocalDateTime now = LocalDateTime.now();
+		Notification older = saveWith("req-221", "requester-A", "user1@example.com");
+		Notification newer = saveWith("req-222", "requester-A", "user2@example.com");
+		overrideCreatedAt(older.getId(), now.minusHours(3));
+		overrideCreatedAt(newer.getId(), now.minusHours(1));
+		entityManager.flush();
+		entityManager.clear();
+
+		NotificationSearchQuery query = new NotificationSearchQuery(
+			"requester-A", null, Set.of(),
+			now.minusDays(1), now.plusDays(1),
+			null, 20
+		);
+
+		List<Notification> found = notificationRepository.search(query, query.limit() + 1);
+
+		assertThat(found).extracting(n -> n.getRequestId().value())
+			.containsExactly("req-222", "req-221");
+	}
+
+	@Test
+	@DisplayName("요청자와 수신자를 함께 지정하면 두 조건을 모두 만족하는 알림만 반환한다")
+	void searchByRequesterAndReceiverCombined() {
+		saveWith("req-231", "requester-A", "target@example.com");
+		saveWith("req-232", "requester-A", "other@example.com");
+		saveWith("req-233", "requester-B", "target@example.com");
+		saveWith("req-234", "requester-B", "other@example.com");
+		entityManager.flush();
+		entityManager.clear();
+
+		LocalDateTime now = LocalDateTime.now();
+		NotificationSearchQuery query = new NotificationSearchQuery(
+			"requester-A", "target@example.com", Set.of(),
+			now.minusDays(1), now.plusDays(1),
+			null, 20
+		);
+
+		List<Notification> found = notificationRepository.search(query, query.limit() + 1);
+
+		assertThat(found).extracting(n -> n.getRequestId().value())
+			.containsExactly("req-231");
 	}
 
 	@Test
@@ -202,5 +273,15 @@ class NotificationRepositoryTest {
 
 	private Notification save(NotificationRegisterRequest request) {
 		return notificationRepository.save(Notification.register(request));
+	}
+
+	// JPA Auditing으로 자동 세팅되는 createdAt을 테스트에서 강제로 조작.
+	// 기간 필터 / 정렬 검증을 위해 과거·미래 시각으로 밀어 두는 용도.
+	private void overrideCreatedAt(Long id, LocalDateTime createdAt) {
+		entityManager.getEntityManager()
+			.createNativeQuery("UPDATE notification SET created_at = ? WHERE id = ?")
+			.setParameter(1, createdAt)
+			.setParameter(2, id)
+			.executeUpdate();
 	}
 }

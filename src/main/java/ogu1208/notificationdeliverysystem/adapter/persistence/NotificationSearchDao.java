@@ -24,7 +24,8 @@ class NotificationSearchDao {
 		);
 		if (query.hasRequester()) {
 			jpql.append(" and n.requesterId = :requesterId");
-		} else {
+		}
+		if (query.hasReceiver()) {
 			jpql.append(" and n.receiver = :receiver");
 		}
 		if (query.hasStatusFilter()) {
@@ -42,7 +43,8 @@ class NotificationSearchDao {
 
 		if (query.hasRequester()) {
 			typedQuery.setParameter("requesterId", query.requesterId());
-		} else {
+		}
+		if (query.hasReceiver()) {
 			typedQuery.setParameter("receiver", query.receiver());
 		}
 		if (query.hasStatusFilter()) {

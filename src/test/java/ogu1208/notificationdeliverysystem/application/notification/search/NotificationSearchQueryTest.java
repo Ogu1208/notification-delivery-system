@@ -18,17 +18,23 @@ class NotificationSearchQueryTest {
 	private final LocalDateTime to = LocalDateTime.of(2026, 8, 8, 0, 0);
 
 	@Test
-	@DisplayName("요청자 또는 수신자가 정확히 하나 없으면 예외를 던진다")
-	void rejectsWhenBothOrNeitherKeyPresent() {
+	@DisplayName("요청자와 수신자가 모두 없으면 예외를 던진다")
+	void rejectsWhenNeitherKeyPresent() {
 		assertThatThrownBy(() -> new NotificationSearchQuery(
 			null, null, Set.of(), from, to, null, 20
 		)).isInstanceOf(IllegalArgumentException.class)
-			.hasMessage("요청자 또는 수신자 중 정확히 하나를 지정해야 합니다");
+			.hasMessage("요청자 또는 수신자 중 최소 하나는 지정해야 합니다");
+	}
 
-		assertThatThrownBy(() -> new NotificationSearchQuery(
+	@Test
+	@DisplayName("요청자와 수신자를 함께 지정하는 것도 허용된다")
+	void acceptsBothKeys() {
+		NotificationSearchQuery query = new NotificationSearchQuery(
 			"requester-1", "user@example.com", Set.of(), from, to, null, 20
-		)).isInstanceOf(IllegalArgumentException.class)
-			.hasMessage("요청자 또는 수신자 중 정확히 하나를 지정해야 합니다");
+		);
+
+		assertThat(query.hasRequester()).isTrue();
+		assertThat(query.hasReceiver()).isTrue();
 	}
 
 	@Test

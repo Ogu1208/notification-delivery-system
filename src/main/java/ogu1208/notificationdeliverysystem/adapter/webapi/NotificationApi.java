@@ -6,6 +6,7 @@ import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import ogu1208.notificationdeliverysystem.adapter.webapi.dto.NotificationDetailResponse;
 import ogu1208.notificationdeliverysystem.adapter.webapi.dto.NotificationRegisterResponse;
 import ogu1208.notificationdeliverysystem.adapter.webapi.dto.NotificationSearchParams;
 import ogu1208.notificationdeliverysystem.adapter.webapi.dto.NotificationSearchResponse;
@@ -41,6 +43,12 @@ public class NotificationApi {
 		Notification notification = notificationRegister.register(request);
 
 		return NotificationRegisterResponse.from(notification);
+	}
+
+	@GetMapping("/notifications/{id}")
+	public NotificationDetailResponse detail(@PathVariable Long id) {
+		Notification notification = notificationFinder.findById(id);
+		return NotificationDetailResponse.from(notification);
 	}
 
 	@GetMapping("/notifications")

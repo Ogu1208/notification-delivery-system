@@ -14,6 +14,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import jakarta.validation.ConstraintViolationException;
+import ogu1208.notificationdeliverysystem.application.notification.NotificationNotFoundException;
 
 @RestControllerAdvice
 public class ApiControllerAdvice extends ResponseEntityExceptionHandler {
@@ -40,6 +41,11 @@ public class ApiControllerAdvice extends ResponseEntityExceptionHandler {
 	})
 	public ProblemDetail handleBadRequestException(RuntimeException exception) {
 		return getProblemDetail(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+	}
+
+	@ExceptionHandler(NotificationNotFoundException.class)
+	public ProblemDetail handleNotFound(NotificationNotFoundException exception) {
+		return getProblemDetail(HttpStatus.NOT_FOUND, exception.getMessage(), exception);
 	}
 
 	@ExceptionHandler(ConstraintViolationException.class)

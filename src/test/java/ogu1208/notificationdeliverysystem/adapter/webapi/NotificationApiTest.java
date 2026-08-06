@@ -1,6 +1,7 @@
 package ogu1208.notificationdeliverysystem.adapter.webapi;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture.createNotification;
@@ -23,6 +24,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
+import ogu1208.notificationdeliverysystem.application.notification.NotificationNotFoundException;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationFinder;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
 import ogu1208.notificationdeliverysystem.application.notification.search.NotificationSearchCursor;
@@ -141,5 +143,31 @@ class NotificationApiTest {
 			.andExpect(jsonPath("$.status").value(400))
 			.andExpect(jsonPath("$.detail").value("요청자 또는 수신자 중 최소 하나는 지정해야 합니다"))
 			.andExpect(jsonPath("$.exception").value("IllegalArgumentException"));
+	}
+
+	@Test
+	@DisplayName("GET /notifications/{id}는 단건 상세를 반환한다")
+	void detailReturnsSingleNotification() throws Exception {
+		Notification notification = createNotification(1L);
+		when(notificationFinder.findById(1L)).thenReturn(notification);
+
+		mockMvc.perform(get("/notifications/1"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.id").value(1))
+			.andExpect(jsonPath("$.requestId").value("req-001"))
+			.andExpect(jsonPath("$.content").value("hello"));
+	}
+
+	@Test
+	@DisplayName("존재하지 않는 알림 상세 조회는 404 ProblemDetail 응답을 반환한다")
+	void detailReturns404WhenMissing() throws Exception {
+		when(notificationFinder.findById(eq(999L)))
+			.thenThrow(new NotificationNotFoundException(999L));
+
+		mockMvc.perform(get("/notifications/999"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.status").value(404))
+			.andExpect(jsonPath("$.detail").value("알림을 찾을 수 없습니다. notificationId=999"))
+			.andExpect(jsonPath("$.exception").value("NotificationNotFoundException"));
 	}
 }

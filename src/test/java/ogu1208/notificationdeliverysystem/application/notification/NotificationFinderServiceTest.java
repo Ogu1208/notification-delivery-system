@@ -1,12 +1,14 @@
 package ogu1208.notificationdeliverysystem.application.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 
@@ -56,8 +58,8 @@ class NotificationFinderServiceTest {
 	}
 
 	@Test
-	@DisplayName("결과가 limit 이하면 nextCursor는 null이다")
-	void nullCursorWhenNoMoreResults() {
+	@DisplayName("결과가 limit보다 적으면 nextCursor는 null이다")
+	void nullCursorWhenFewerThanLimit() {
 		NotificationSearchQuery query = queryWithLimit(5);
 		List<Notification> found = IntStream.range(0, 3)
 			.mapToObj(i -> notificationAt((long) (100 - i), LocalDateTime.of(2026, 8, 5 - i, 12, 0)))
@@ -69,6 +71,44 @@ class NotificationFinderServiceTest {
 		assertThat(result.items()).hasSize(3);
 		assertThat(result.hasNext()).isFalse();
 		assertThat(result.nextCursor()).isNull();
+	}
+
+	@Test
+	@DisplayName("결과가 정확히 limit개면 nextCursor는 null이다 (다음 페이지 존재 여부는 알 수 없음)")
+	void nullCursorWhenExactlyLimit() {
+		NotificationSearchQuery query = queryWithLimit(3);
+		List<Notification> found = IntStream.range(0, 3)
+			.mapToObj(i -> notificationAt((long) (100 - i), LocalDateTime.of(2026, 8, 5 - i, 12, 0)))
+			.toList();
+		// limit+1=4를 요청했지만 3개만 반환됨 → 정확히 limit개
+		when(notificationRepository.search(any(NotificationSearchQuery.class), eq(4))).thenReturn(found);
+
+		NotificationSearchResult result = notificationFinderService.search(query);
+
+		assertThat(result.items()).hasSize(3);
+		assertThat(result.hasNext()).isFalse();
+		assertThat(result.nextCursor()).isNull();
+	}
+
+	@Test
+	@DisplayName("findById는 저장소에서 알림을 조회해 반환한다")
+	void findByIdReturnsNotification() {
+		Notification notification = notificationAt(42L, LocalDateTime.of(2026, 8, 5, 12, 0));
+		when(notificationRepository.findById(42L)).thenReturn(Optional.of(notification));
+
+		Notification found = notificationFinderService.findById(42L);
+
+		assertThat(found).isSameAs(notification);
+	}
+
+	@Test
+	@DisplayName("findById로 존재하지 않는 알림을 조회하면 NotificationNotFoundException을 던진다")
+	void findByIdThrowsWhenMissing() {
+		when(notificationRepository.findById(999L)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> notificationFinderService.findById(999L))
+			.isInstanceOf(NotificationNotFoundException.class)
+			.hasMessageContaining("notificationId=999");
 	}
 
 	private NotificationSearchQuery queryWithLimit(int limit) {

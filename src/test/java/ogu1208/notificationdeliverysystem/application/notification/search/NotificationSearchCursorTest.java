@@ -33,10 +33,43 @@ class NotificationSearchCursorTest {
 	}
 
 	@Test
-	@DisplayName("잘못된 형식의 커서는 예외를 던진다")
-	void decodeRejectsMalformed() {
+	@DisplayName("커서 값이 null이면 예외를 던진다")
+	void decodeRejectsNull() {
+		assertThatThrownBy(() -> NotificationSearchCursor.decode(null))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("cursor 값이 비어 있습니다");
+	}
+
+	@Test
+	@DisplayName("Base64로 디코딩되지 않는 커서는 예외를 던진다")
+	void decodeRejectsInvalidBase64() {
 		assertThatThrownBy(() -> NotificationSearchCursor.decode("not-a-valid-base64!"))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessageContaining("cursor 형식이 올바르지 않습니다");
+	}
+
+	@Test
+	@DisplayName("Base64는 유효하지만 JSON이 아닌 커서는 예외를 던진다")
+	void decodeRejectsNonJsonPayload() {
+		// "foobar"를 Base64로 인코딩한 값 → 디코딩되지만 JSON 파싱 실패
+		assertThatThrownBy(() -> NotificationSearchCursor.decode("Zm9vYmFy"))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("cursor 형식이 올바르지 않습니다");
+	}
+
+	@Test
+	@DisplayName("createdAt이 null이면 생성자에서 예외를 던진다")
+	void rejectsNullCreatedAt() {
+		assertThatThrownBy(() -> new NotificationSearchCursor(null, 1L))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("cursor createdAt은 필수입니다");
+	}
+
+	@Test
+	@DisplayName("id가 null이면 생성자에서 예외를 던진다")
+	void rejectsNullId() {
+		assertThatThrownBy(() -> new NotificationSearchCursor(LocalDateTime.now(), null))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("cursor id는 필수입니다");
 	}
 }

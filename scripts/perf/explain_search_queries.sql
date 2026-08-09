@@ -28,14 +28,14 @@ LIMIT 21;
 \echo 'B. 요청자 기준 커서 있는 깊은 페이지 (500번째 페이지 근처)'
 \echo '========================================='
 -- 실제 서비스 상황: 클라이언트가 nextCursor 반복 요청해서 깊은 페이지에 도달.
--- 시딩 데이터 중 svc-5의 특정 시점 알림 하나를 커서로 사용 (아무 값이나 실전과 유사한 형태로).
+-- 커서 조건은 튜플 비교 (created_at, id) < (X, Y)로 표현.
+-- 인덱스 `(requester_id, created_at, id)`가 있으면 인덱스 seek로 완전 처리.
 EXPLAIN (ANALYZE, BUFFERS)
 SELECT * FROM notification
 WHERE requester_id = 'svc-5'
   AND created_at >= NOW() - INTERVAL '7 days'
   AND created_at <  NOW()
-  AND (created_at < NOW() - INTERVAL '3 days'
-       OR (created_at = NOW() - INTERVAL '3 days' AND id < 500000))
+  AND (created_at, id) < (NOW() - INTERVAL '3 days', 500000)
 ORDER BY created_at DESC, id DESC
 LIMIT 21;
 

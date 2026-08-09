@@ -27,8 +27,11 @@ import ogu1208.notificationdeliverysystem.domain.common.BaseEntity;
 	name = "notification",
 	uniqueConstraints = @UniqueConstraint(name = "uk_notification_request_id", columnNames = "requestId"),
 	indexes = {
-		@Index(name = "idx_notification_requester_created", columnList = "requesterId, createdAt"),
-		@Index(name = "idx_notification_receiver_created", columnList = "receiver, createdAt")
+		// id를 key column에 포함해 커서 페이징 튜플 비교 `(created_at, id) < (?, ?)`가
+		// 전체 인덱스 seek로 처리되도록 한다. Postgres 세컨더리 인덱스는 PK를 leaf에
+		// 자동 포함하지 않아 명시적으로 넣어야 한다. 상세: docs/조회성능설계.md §4.
+		@Index(name = "idx_notification_requester_created", columnList = "requesterId, createdAt, id"),
+		@Index(name = "idx_notification_receiver_created", columnList = "receiver, createdAt, id")
 	}
 )
 public class Notification extends BaseEntity {

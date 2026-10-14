@@ -8,23 +8,29 @@ Kafka와 Redis 의존성은 해당 구현 단계에서 필요해질 때 추가�
 
 ## 개발 워크플로우
 
-팀은 [`superpowers`](https://github.com/obra/superpowers) 시리즈를 기본 워크플로우로 사용한다.
+작업 단위는 GitHub 이슈다. 이슈에서 시작해 PR로 끝낸다.
 
-1. `superpowers:brainstorming`: 요구사항과 디자인을 탐색한다.
-2. `superpowers:writing-plans`: 구현 계획을 수립한다.
-3. `superpowers:test-driven-development`: TDD 방식으로 구현한다.
-4. `/test <대상>`: 프로젝트 컨벤션 기반 테스트를 작성한다.
-5. `superpowers:verification-before-completion`: `./gradlew test` 등 증거 기반 검증을 수행한다.
-6. 문서 반영: 바뀐 내용을 관련 문서(`AGENTS.md`, `README.md`, `docs/*`)에 반영한다. 기존 문서를 수정하거나 필요하면 적절한 문서를 신규 생성하고, 같은 PR에 포함한다.
-7. `/pr`: 사용자 검수 후 PR을 생성한다.
+1. `/issue [CATEGORY] [작업 내용]`: 팀 컨벤션에 맞춘 이슈를 만든다.
+2. `/branch [CATEGORY] [이슈번호] [설명]`: `origin/main` 기준으로 작업 브랜치를 분기한다.
+3. `/implement [이슈번호]`: 계획을 세우고 "구현 → 테스트 → 검토 → 승인 → 커밋"을 단계마다 반복한다.
+4. `/commit`: `type: 설명 (#N)` 형식으로 커밋한다. 단계 승인 시 `/implement`가 호출한다.
+5. `/pr [이슈번호]`: 전체 테스트가 통과한 뒤 사용자 검수를 받아 PR을 생성한다.
 
-상황별 우선 규칙:
+스킬 문서는 `.agents/skills/` 아래에 두고, `.claude/skills`가 이를 심볼릭 링크로 가리킨다.
+각 스킬의 규칙이 단일 소스다. 커밋 타입 목록은 `/branch`의 라벨 매핑표, 커밋 메시지 형식은 `/commit`이 정한다.
 
+구현 안에서는 [`superpowers`](https://github.com/obra/superpowers) 시리즈를 함께 쓴다.
+
+- 요구사항이 모호하면 `superpowers:brainstorming`으로 먼저 탐색한다.
+- 구현은 `superpowers:test-driven-development`를 따른다. 버그 수정은 실패하는 테스트를 먼저 쓴다.
+- 완료를 주장하기 전에 `superpowers:verification-before-completion`으로 `./gradlew test` 결과를 확인한다.
 - 버그 발생 시 가장 먼저 `superpowers:systematic-debugging`을 사용한다.
-- 코드 리뷰를 받았을 때는 `superpowers:receiving-code-review`로 검토한 뒤 반영한다.
-- 병렬 작업이 가능할 때는 `superpowers:dispatching-parallel-agents`를 사용한다.
+- 리뷰는 `superpowers:requesting-code-review`로 요청하고, 받은 지적은 `superpowers:receiving-code-review`로 검토한 뒤 반영한다.
+- 독립이 확인된 이슈가 둘 이상이면 `superpowers:dispatching-parallel-agents`로 병렬 처리한다.
 
-`superpowers` 관련 보조 문서는 `docs/superpowers/` 아래에 작성한다. 이 디렉터리는 로컬 작업 기록 성격이므로 Git 추적에서 제외한다.
+문서 반영은 구현과 같은 PR에 포함한다. 바뀐 내용을 관련 문서(`AGENTS.md`, `README.md`, `docs/*`)에 반영하고, 기존 문서를 수정하거나 필요하면 적절한 문서를 신규 생성한다.
+
+`superpowers` 보조 문서와 `/implement` 계획 파일(`docs/superpowers/plans/{N}.md`)은 `docs/superpowers/` 아래에 둔다. 이 디렉터리는 로컬 작업 기록 성격이므로 Git 추적에서 제외한다.
 
 ## 아키텍처
 

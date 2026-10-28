@@ -145,6 +145,97 @@ class MockSendApiClientTest {
 		server.verify();
 	}
 
+	@Test
+	@DisplayName("Mock Send API 성공 응답의 requestId가 요청과 다르면 재시도하지 않는 실패로 분류한다")
+	void classifyMismatchedResponseRequestIdAsNonRetryableFailure() {
+		RestClient.Builder restClientBuilder = RestClient.builder();
+		MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
+		MockSendApiClient client = new MockSendApiClient(
+			restClientBuilder.baseUrl("http://localhost:8081").build()
+		);
+		Notification notification = createSmsNotification();
+
+		server.expect(once(), requestTo("http://localhost:8081/mock/send"))
+			.andExpect(jsonPath("$.requestId").value("req-001"))
+			.andRespond(withSuccess("""
+				{
+				  "result": "SUCCESS",
+				  "requestId": "req-999",
+				  "channelType": "SMS",
+				  "processedAt": "2026-07-22T00:00:00Z",
+				  "latencyMs": 120
+				}
+				""", MediaType.APPLICATION_JSON));
+
+		assertThatThrownBy(() -> client.send(notification, NotificationChannel.SMS))
+			.isInstanceOfSatisfying(ExternalNotificationSendException.class, exception -> {
+				assertThat(exception.isRetryable()).isFalse();
+				assertThat(exception.getErrorCode()).isEqualTo("MOCK_REQUEST_ID_MISMATCH");
+				assertThat(exception.getExternalStatusCode()).isEqualTo(200);
+			});
+
+		server.verify();
+	}
+
+	@Test
+	@DisplayName("Mock Send API 성공 응답에 requestId가 없으면 재시도하지 않는 실패로 분류한다")
+	void classifyMissingResponseRequestIdAsNonRetryableFailure() {
+		RestClient.Builder restClientBuilder = RestClient.builder();
+		MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
+		MockSendApiClient client = new MockSendApiClient(
+			restClientBuilder.baseUrl("http://localhost:8081").build()
+		);
+		Notification notification = createSmsNotification();
+
+		server.expect(once(), requestTo("http://localhost:8081/mock/send"))
+			.andRespond(withSuccess("""
+				{
+				  "result": "SUCCESS",
+				  "channelType": "SMS",
+				  "processedAt": "2026-07-22T00:00:00Z",
+				  "latencyMs": 120
+				}
+				""", MediaType.APPLICATION_JSON));
+
+		assertThatThrownBy(() -> client.send(notification, NotificationChannel.SMS))
+			.isInstanceOfSatisfying(ExternalNotificationSendException.class, exception -> {
+				assertThat(exception.isRetryable()).isFalse();
+				assertThat(exception.getErrorCode()).isEqualTo("MOCK_REQUEST_ID_MISMATCH");
+			});
+
+		server.verify();
+	}
+
+	@Test
+	@DisplayName("Mock Send API 성공 응답의 requestId가 공백이면 재시도하지 않는 실패로 분류한다")
+	void classifyBlankResponseRequestIdAsNonRetryableFailure() {
+		RestClient.Builder restClientBuilder = RestClient.builder();
+		MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
+		MockSendApiClient client = new MockSendApiClient(
+			restClientBuilder.baseUrl("http://localhost:8081").build()
+		);
+		Notification notification = createSmsNotification();
+
+		server.expect(once(), requestTo("http://localhost:8081/mock/send"))
+			.andRespond(withSuccess("""
+				{
+				  "result": "SUCCESS",
+				  "requestId": "   ",
+				  "channelType": "SMS",
+				  "processedAt": "2026-07-22T00:00:00Z",
+				  "latencyMs": 120
+				}
+				""", MediaType.APPLICATION_JSON));
+
+		assertThatThrownBy(() -> client.send(notification, NotificationChannel.SMS))
+			.isInstanceOfSatisfying(ExternalNotificationSendException.class, exception -> {
+				assertThat(exception.isRetryable()).isFalse();
+				assertThat(exception.getErrorCode()).isEqualTo("MOCK_REQUEST_ID_MISMATCH");
+			});
+
+		server.verify();
+	}
+
 	private Notification createSmsNotification() {
 		Notification notification = Notification.register(NotificationFixture.builder()
 			.withReceiver("01012345678")

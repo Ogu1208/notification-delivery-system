@@ -138,6 +138,18 @@ public class MockSendApiClient {
 							null
 						);
 					}
+					String sentRequestId = notification.getRequestId().value();
+					if (parsed.requestId() == null || parsed.requestId().isBlank()
+						|| !parsed.requestId().equals(sentRequestId)) {
+						throw ExternalNotificationSendException.nonRetryable(
+							"Mock Send API 성공 응답의 requestId가 요청과 다릅니다. sent=%s, received=%s"
+								.formatted(sentRequestId, parsed.requestId()),
+							"MOCK_REQUEST_ID_MISMATCH",
+							response.getStatusCode().value(),
+							elapsedTimeMs(startedAt),
+							null
+						);
+					}
 					return parsed;
 				});
 			log.info(

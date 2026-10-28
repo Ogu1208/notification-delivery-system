@@ -27,7 +27,7 @@ public class NotificationFinderService implements NotificationFinder {
 
 		boolean hasNext = found.size() > query.limit();
 		List<Notification> items = hasNext ? found.subList(0, query.limit()) : found;
-		NotificationSearchCursor nextCursor = hasNext ? toCursor(items.get(items.size() - 1)) : null;
+		NotificationSearchCursor nextCursor = hasNext ? toCursor(items.get(items.size() - 1), query) : null;
 
 		return new NotificationSearchResult(items, nextCursor);
 	}
@@ -46,7 +46,7 @@ public class NotificationFinderService implements NotificationFinder {
 			.orElseThrow(() -> NotificationNotFoundException.byRequestId(requestId));
 	}
 
-	private NotificationSearchCursor toCursor(Notification last) {
-		return new NotificationSearchCursor(last.getCreatedAt(), last.getId());
+	private NotificationSearchCursor toCursor(Notification last, NotificationSearchQuery query) {
+		return new NotificationSearchCursor(last.getCreatedAt(), last.getId(), query.from(), query.to());
 	}
 }

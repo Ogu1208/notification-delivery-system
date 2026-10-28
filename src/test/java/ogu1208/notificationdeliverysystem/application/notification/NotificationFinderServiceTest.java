@@ -58,6 +58,22 @@ class NotificationFinderServiceTest {
 	}
 
 	@Test
+	@DisplayName("nextCursor는 요청에 쓰인 조회 구간을 함께 담는다")
+	void nextCursorCarriesSearchWindow() {
+		NotificationSearchQuery query = queryWithLimit(1);
+		List<Notification> found = List.of(
+			notificationAt(10L, LocalDateTime.of(2026, 8, 5, 12, 0)),
+			notificationAt(9L, LocalDateTime.of(2026, 8, 4, 12, 0))
+		);
+		when(notificationRepository.search(eq(query), eq(2))).thenReturn(found);
+
+		NotificationSearchResult result = notificationFinderService.search(query);
+
+		assertThat(result.nextCursor().from()).isEqualTo(query.from());
+		assertThat(result.nextCursor().to()).isEqualTo(query.to());
+	}
+
+	@Test
 	@DisplayName("결과가 limit보다 적으면 nextCursor는 null이다")
 	void nullCursorWhenFewerThanLimit() {
 		NotificationSearchQuery query = queryWithLimit(5);

@@ -272,10 +272,14 @@ class NotificationRepositoryTest {
 		entityManager.clear();
 
 		LocalDateTime now = LocalDateTime.now();
-		NotificationSearchCursor cursor = new NotificationSearchCursor(third.getCreatedAt(), third.getId());
+		LocalDateTime from = now.minusDays(1);
+		LocalDateTime to = now.plusDays(1);
+		NotificationSearchCursor cursor = new NotificationSearchCursor(
+			third.getCreatedAt(), third.getId(), from, to
+		);
 		NotificationSearchQuery query = new NotificationSearchQuery(
 			"requester-001", null, Set.of(), Set.of(),
-			now.minusDays(1), now.plusDays(1),
+			from, to,
 			cursor, 20
 		);
 

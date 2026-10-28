@@ -1,7 +1,9 @@
 package ogu1208.notificationdeliverysystem.adapter.webapi;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static ogu1208.notificationdeliverysystem.support.fixture.NotificationFixture.createNotification;
@@ -12,11 +14,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
@@ -28,6 +32,7 @@ import ogu1208.notificationdeliverysystem.application.notification.NotificationN
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationFinder;
 import ogu1208.notificationdeliverysystem.application.notification.provided.NotificationRegister;
 import ogu1208.notificationdeliverysystem.application.notification.search.NotificationSearchCursor;
+import ogu1208.notificationdeliverysystem.application.notification.search.NotificationSearchQuery;
 import ogu1208.notificationdeliverysystem.application.notification.search.NotificationSearchResult;
 import ogu1208.notificationdeliverysystem.domain.notification.Notification;
 import ogu1208.notificationdeliverysystem.domain.notification.NotificationRegisterRequest;
@@ -119,7 +124,9 @@ class NotificationApiTest {
 		ReflectionTestUtils.setField(notification, "createdAt", LocalDateTime.of(2026, 8, 1, 12, 34, 56));
 		NotificationSearchCursor cursor = new NotificationSearchCursor(
 			LocalDateTime.of(2026, 8, 1, 12, 34, 56),
-			1L
+			1L,
+			LocalDateTime.of(2026, 7, 25, 12, 34, 56),
+			LocalDateTime.of(2026, 8, 1, 12, 34, 56)
 		);
 		when(notificationFinder.search(any()))
 			.thenReturn(new NotificationSearchResult(List.of(notification), cursor));
@@ -133,6 +140,109 @@ class NotificationApiTest {
 			.andExpect(jsonPath("$.items[0].requesterId").value("requester-001"))
 			.andExpect(jsonPath("$.items[0].receiver").value("user@example.com"))
 			.andExpect(jsonPath("$.nextCursor").value(cursor.encode()));
+	}
+
+	@Test
+	@DisplayName("커서로 다음 페이지를 조회하면 첫 페이지에서 확정한 조회 구간을 그대로 써서 경계 근처 알림이 누락되지 않는다")
+	void searchReusesFirstPageWindowWhenPagingWithCursor() throws Exception {
+		LocalDateTime firstPageTo = LocalDateTime.now().minusHours(1);
+		LocalDateTime firstPageFrom = firstPageTo.minusDays(7);
+		Notification recent = notificationAt(2L, LocalDateTime.now().minusHours(2));
+		Notification nearLowerBound = notificationAt(1L, firstPageFrom.plusMinutes(30));
+		stubSearchOver(List.of(recent, nearLowerBound));
+
+		String firstPage = mockMvc.perform(get("/notifications")
+				.param("requesterId", "requester-001")
+				.param("from", firstPageFrom.toString())
+				.param("to", firstPageTo.toString())
+				.param("limit", "1"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.items[0].id").value(2))
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		String nextCursor = objectMapper.readTree(firstPage).path("nextCursor").asText();
+
+		mockMvc.perform(get("/notifications")
+				.param("requesterId", "requester-001")
+				.param("cursor", nextCursor)
+				.param("limit", "1"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.items.length()").value(1))
+			.andExpect(jsonPath("$.items[0].id").value(1));
+	}
+
+	@Test
+	@DisplayName("커서가 있고 from, to가 없으면 같은 커서로 몇 번을 조회해도 커서에 담긴 구간을 쓴다")
+	void searchUsesCursorWindowWhenFromAndToAreOmitted() throws Exception {
+		LocalDateTime from = LocalDateTime.of(2026, 7, 25, 10, 0);
+		LocalDateTime to = LocalDateTime.of(2026, 8, 1, 10, 0);
+		NotificationSearchCursor cursor = new NotificationSearchCursor(
+			LocalDateTime.of(2026, 8, 1, 9, 0),
+			5L,
+			from,
+			to
+		);
+		when(notificationFinder.search(any())).thenReturn(new NotificationSearchResult(List.of(), null));
+
+		for (int i = 0; i < 2; i++) {
+			mockMvc.perform(get("/notifications")
+					.param("requesterId", "requester-001")
+					.param("cursor", cursor.encode()))
+				.andExpect(status().isOk());
+		}
+
+		ArgumentCaptor<NotificationSearchQuery> captor = ArgumentCaptor.forClass(NotificationSearchQuery.class);
+		verify(notificationFinder, times(2)).search(captor.capture());
+		assertThat(captor.getAllValues())
+			.allSatisfy(query -> {
+				assertThat(query.from()).isEqualTo(from);
+				assertThat(query.to()).isEqualTo(to);
+			});
+	}
+
+	@Test
+	@DisplayName("커서와 from, to가 서로 다르면 400 ProblemDetail 응답을 반환한다")
+	void searchRejectsWhenFromDisagreesWithCursorWindow() throws Exception {
+		NotificationSearchCursor cursor = new NotificationSearchCursor(
+			LocalDateTime.of(2026, 8, 1, 9, 0),
+			5L,
+			LocalDateTime.of(2026, 7, 25, 10, 0),
+			LocalDateTime.of(2026, 8, 1, 10, 0)
+		);
+
+		mockMvc.perform(get("/notifications")
+				.param("requesterId", "requester-001")
+				.param("cursor", cursor.encode())
+				.param("from", "2026-07-26T10:00:00"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.status").value(400))
+			.andExpect(jsonPath("$.detail")
+				.value("cursor에 담긴 조회 구간과 from, to가 다릅니다. 구간을 바꾸려면 cursor 없이 다시 조회해야 합니다"))
+			.andExpect(jsonPath("$.exception").value("IllegalArgumentException"));
+	}
+
+	@Test
+	@DisplayName("커서와 같은 구간을 from, to로 다시 보내면 정상 조회한다")
+	void searchAllowsFromAndToMatchingCursorWindow() throws Exception {
+		LocalDateTime from = LocalDateTime.of(2026, 7, 25, 10, 0);
+		LocalDateTime to = LocalDateTime.of(2026, 8, 1, 10, 0);
+		NotificationSearchCursor cursor = new NotificationSearchCursor(
+			LocalDateTime.of(2026, 8, 1, 9, 0),
+			5L,
+			from,
+			to
+		);
+		when(notificationFinder.search(any())).thenReturn(new NotificationSearchResult(List.of(), null));
+
+		mockMvc.perform(get("/notifications")
+				.param("requesterId", "requester-001")
+				.param("cursor", cursor.encode())
+				.param("from", from.toString())
+				.param("to", to.toString()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.items.length()").value(0))
+			.andExpect(jsonPath("$.nextCursor").doesNotExist());
 	}
 
 	@Test
@@ -194,5 +304,38 @@ class NotificationApiTest {
 			.andExpect(jsonPath("$.status").value(404))
 			.andExpect(jsonPath("$.detail").value("알림을 찾을 수 없습니다. requestId=req-missing"))
 			.andExpect(jsonPath("$.exception").value("NotificationNotFoundException"));
+	}
+
+	private void stubSearchOver(List<Notification> all) {
+		when(notificationFinder.search(any())).thenAnswer(invocation -> {
+			NotificationSearchQuery query = invocation.getArgument(0);
+			List<Notification> matched = all.stream()
+				.filter(notification -> !notification.getCreatedAt().isBefore(query.from()))
+				.filter(notification -> notification.getCreatedAt().isBefore(query.to()))
+				.filter(notification -> query.cursor() == null || isBeforeCursor(notification, query.cursor()))
+				.sorted(Comparator.comparing(Notification::getCreatedAt)
+					.thenComparing(Notification::getId)
+					.reversed())
+				.toList();
+			boolean hasNext = matched.size() > query.limit();
+			List<Notification> items = hasNext ? matched.subList(0, query.limit()) : matched;
+			NotificationSearchCursor nextCursor = hasNext ? toCursor(items.get(items.size() - 1), query) : null;
+			return new NotificationSearchResult(items, nextCursor);
+		});
+	}
+
+	private boolean isBeforeCursor(Notification notification, NotificationSearchCursor cursor) {
+		int comparison = notification.getCreatedAt().compareTo(cursor.createdAt());
+		return comparison < 0 || (comparison == 0 && notification.getId() < cursor.id());
+	}
+
+	private NotificationSearchCursor toCursor(Notification last, NotificationSearchQuery query) {
+		return new NotificationSearchCursor(last.getCreatedAt(), last.getId(), query.from(), query.to());
+	}
+
+	private Notification notificationAt(Long id, LocalDateTime createdAt) {
+		Notification notification = createNotification(id);
+		ReflectionTestUtils.setField(notification, "createdAt", createdAt);
+		return notification;
 	}
 }
